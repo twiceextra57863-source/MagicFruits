@@ -5,6 +5,8 @@ import com.example.magicfruits.MagicFruits;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -89,12 +91,12 @@ public class StealGUI implements Listener {
         ItemStack info = new ItemStack(Material.BOOK);
         ItemMeta infoMeta = info.getItemMeta();
         infoMeta.displayName(Component.text("§6§l✦ ABILITY STEALER ✦"));
-        infoMeta.lore(Arrays.asList(
-            Component.text("§7Steal a player's fruit ability!"),
-            Component.text("§7The victim will be frozen for 5 seconds"),
-            Component.text("§7You keep the ability for 20 seconds"),
-            Component.text("§7Cooldown: 2 minutes")
-        ));
+        List<Component> infoLore = new ArrayList<>();
+        infoLore.add(Component.text("§7Steal a player's fruit ability!"));
+        infoLore.add(Component.text("§7The victim will be frozen for 5 seconds"));
+        infoLore.add(Component.text("§7You keep the ability for 20 seconds"));
+        infoLore.add(Component.text("§7Cooldown: 2 minutes"));
+        infoMeta.lore(infoLore);
         info.setItemMeta(infoMeta);
         gui.setItem(49, info);
         
@@ -187,4 +189,4 @@ public class StealGUI implements Listener {
         target.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 100, 1));
         target.sendMessage("§c§l❄️ §fYou have been frozen for 5 seconds!");
     }
-                                           }
+}
