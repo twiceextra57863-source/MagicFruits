@@ -44,7 +44,6 @@ public class PortalAbility implements Ability, Listener {
     }
     
     public PortalAbility() {
-        // Start cleanup task for expired portals
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -56,32 +55,25 @@ public class PortalAbility implements Ability, Listener {
     
     @Override
     public void execute(Player player, boolean isSecondary) {
-        MagicFruits plugin = MagicFruits.getInstance();
-        
         if (isSecondary) {
-            // Secondary Ability: Summon portal
-            executeSummonPortal(player, plugin);
+            executeSummonPortal(player);
         } else {
-            // Primary Ability: Teleport portal
-            executeTeleportPortal(player, plugin);
+            executeTeleportPortal(player);
         }
     }
     
-    private void executeTeleportPortal(Player player, MagicFruits plugin) {
+    private void executeTeleportPortal(Player player) {
         UUID uuid = player.getUniqueId();
         
-        // Check if already creating portal
         if (creatingPortal.containsKey(uuid)) {
             PortalCreationData data = creatingPortal.get(uuid);
             
-            // Check if 20 seconds passed
             if (System.currentTimeMillis() - data.creationTime > 20000) {
                 player.sendMessage("§c§l⚠ §fTime expired! Start again!");
                 creatingPortal.remove(uuid);
                 return;
             }
             
-            // Create second portal at target block
             Block targetBlock = player.getTargetBlock(null, 50);
             if (targetBlock == null) {
                 player.sendMessage("§c§l⚠ §fNo block in sight!");
@@ -89,11 +81,9 @@ public class PortalAbility implements Ability, Listener {
             }
             Location secondPortal = targetBlock.getLocation().add(0.5, 1, 0.5);
             
-            // Create portal visuals
             createPortalVisual(data.firstPortal);
             createPortalVisual(secondPortal);
             
-            // Store portals
             activePortals.put(uuid, new PortalData(data.firstPortal, secondPortal, 
                 System.currentTimeMillis() + 60000));
             
@@ -106,7 +96,6 @@ public class PortalAbility implements Ability, Listener {
             return;
         }
         
-        // Create first portal at target block
         Block targetBlock = player.getTargetBlock(null, 50);
         if (targetBlock == null) {
             player.sendMessage("§c§l⚠ §fNo block in sight!");
@@ -122,10 +111,9 @@ public class PortalAbility implements Ability, Listener {
         player.sendMessage("§5§l🔮 §fFirst portal placed! You have 20 seconds to place the second portal!");
     }
     
-    private void executeSummonPortal(Player player, MagicFruits plugin) {
+    private void executeSummonPortal(Player player) {
         UUID uuid = player.getUniqueId();
         
-        // Check cooldown (20 minutes)
         long lastUse = summonCooldown.getOrDefault(uuid, 0L);
         if (System.currentTimeMillis() - lastUse < 1200000) {
             long remaining = (1200000 - (System.currentTimeMillis() - lastUse)) / 1000;
@@ -135,7 +123,6 @@ public class PortalAbility implements Ability, Listener {
             return;
         }
         
-        // Get target block where player is looking
         Block targetBlock = player.getTargetBlock(null, 50);
         if (targetBlock == null) {
             player.sendMessage("§c§l⚠ §fNo block in sight!");
@@ -143,29 +130,21 @@ public class PortalAbility implements Ability, Listener {
         }
         
         Location portalLoc = targetBlock.getLocation().add(0.5, 1, 0.5);
-        
-        // Create summon portal visual
         createSummonPortalVisual(portalLoc);
         
-        // Store portal for this player
         activePortals.put(uuid, new PortalData(portalLoc, null, System.currentTimeMillis() + 120000));
-        
         summonCooldown.put(uuid, System.currentTimeMillis());
         
         player.sendTitle("§5§l🌀 SUMMON PORTAL CREATED!", 
             "§eLeft click the portal to summon any player!", 10, 40, 10);
         player.playSound(player.getLocation(), Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 1.2f);
         player.sendMessage("§5§l🌀 §fSummon portal created! Click it to summon players!");
-        player.sendMessage("§eYou have 2 minutes to use this portal!");
         
-        // Register click listener for this portal
         new PortalClickListener(portalLoc, player);
     }
     
     private void createPortalVisual(Location loc) {
         World world = loc.getWorld();
-        
-        // Particle effects
         for (int i = 0; i < 100; i++) {
             double radius = 1.5;
             double angle = Math.random() * 2 * Math.PI;
@@ -173,19 +152,14 @@ public class PortalAbility implements Ability, Listener {
             double z = Math.sin(angle) * radius;
             world.spawnParticle(Particle.PORTAL, loc.clone().add(x, Math.random() * 2, z), 0, 0, 0, 0, 1);
         }
-        
-        // End rod beam
         for (int y = 0; y < 3; y++) {
             world.spawnParticle(Particle.END_ROD, loc.clone().add(0, y, 0), 5, 0.2, 0.2, 0.2, 0.1);
         }
-        
         world.playSound(loc, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 1.0f);
     }
     
     private void createSummonPortalVisual(Location loc) {
         World world = loc.getWorld();
-        
-        // Circle of particles
         for (int i = 0; i < 360; i += 10) {
             double rad = Math.toRadians(i);
             double radius = 2;
@@ -195,36 +169,28 @@ public class PortalAbility implements Ability, Listener {
             world.spawnParticle(Particle.PORTAL, loc.clone().add(x, 1, z), 0, 0, 0, 0, 1);
             world.spawnParticle(Particle.END_ROD, loc.clone().add(x, 2, z), 0, 0, 0, 0, 1);
         }
-        
-        // Center beam
         for (int y = 0; y < 4; y++) {
             world.spawnParticle(Particle.DRAGON_BREATH, loc.clone().add(0, y, 0), 10, 0.2, 0.2, 0.2, 0.1);
         }
-        
         world.playSound(loc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.5f);
     }
     
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
-        Location from = event.getFrom();
         Location to = event.getTo();
-        
         if (to == null) return;
         
-        // Check if player moved into a portal
         for (Map.Entry<UUID, PortalData> entry : activePortals.entrySet()) {
             PortalData data = entry.getValue();
             if (data.portal1 != null && data.portal2 != null) {
-                if (to.distance(data.portal1) < 1.5 && from.distance(data.portal1) >= 1.5) {
+                if (to.distance(data.portal1) < 1.5) {
                     player.teleport(data.portal2);
                     player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
-                    player.spawnParticle(Particle.PORTAL, data.portal2, 50, 0.5, 1, 0.5, 0.1);
                     break;
-                } else if (to.distance(data.portal2) < 1.5 && from.distance(data.portal2) >= 1.5) {
+                } else if (to.distance(data.portal2) < 1.5) {
                     player.teleport(data.portal1);
                     player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
-                    player.spawnParticle(Particle.PORTAL, data.portal1, 50, 0.5, 1, 0.5, 0.1);
                     break;
                 }
             }
@@ -239,8 +205,6 @@ public class PortalAbility implements Ability, Listener {
             this.portalLoc = loc;
             this.owner = owner;
             MagicFruits.getInstance().getServer().getPluginManager().registerEvents(this, MagicFruits.getInstance());
-            
-            // Auto unregister after 2 minutes
             new BukkitRunnable() {
                 @Override
                 public void run() {
@@ -263,7 +227,6 @@ public class PortalAbility implements Ability, Listener {
                     return;
                 }
                 
-                // Open GUI to select player
                 Inventory gui = Bukkit.createInventory(null, 54, "§5§l🌀 SUMMON PLAYER §5§l🌀");
                 
                 int slot = 19;
@@ -286,8 +249,6 @@ public class PortalAbility implements Ability, Listener {
                 }
                 
                 owner.openInventory(gui);
-                
-                // Handle GUI click
                 new SummonGUIHandler(owner, portalLoc);
             }
         }
@@ -326,11 +287,8 @@ public class PortalAbility implements Ability, Listener {
                 owner.sendMessage("§a§l✓ §fYou have summoned §e" + target.getName());
                 owner.playSound(owner.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
                 
-                // Remove portal after use
                 activePortals.remove(owner.getUniqueId());
                 owner.closeInventory();
-                
-                // Unregister handlers
                 org.bukkit.event.HandlerList.unregisterAll(this);
             }
         }
@@ -345,4 +303,4 @@ public class PortalAbility implements Ability, Listener {
     public String getSecondaryDescription() {
         return "Create summon portal (20 min cooldown, click to summon any player)";
     }
-                }
+    }
