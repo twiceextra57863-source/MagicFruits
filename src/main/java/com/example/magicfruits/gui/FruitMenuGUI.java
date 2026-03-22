@@ -168,8 +168,186 @@ public class FruitMenuGUI implements Listener {
     private ItemStack createMenuItem(Material material, String name, String... lore) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
+package com.example.magicfruits.gui;
+
+import com.example.magicfruits.FruitType;
+import com.example.magicfruits.MagicFruits;
+import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+public class FruitMenuGUI implements Listener {
+    
+    private final MagicFruits plugin;
+    
+    public FruitMenuGUI(MagicFruits plugin) {
+        this.plugin = plugin;
+    }
+    
+    public void openFruitsMenu(Player player) {
+        Inventory gui = Bukkit.createInventory(null, 54, "§8§l✦ §6§lFRUITS MENU §8§l✦");
+        
+        // Border
+        ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+        ItemMeta borderMeta = border.getItemMeta();
+        borderMeta.displayName(Component.text(" "));
+        border.setItemMeta(borderMeta);
+        
+        for (int i = 0; i < 54; i++) {
+            if (i < 9 || i >= 45 || i % 9 == 0 || i % 9 == 8) {
+                gui.setItem(i, border);
+            }
+        }
+        
+        // Add all fruits
+        int slot = 10;
+        for (FruitType fruit : FruitType.values()) {
+            gui.setItem(slot, fruit.getIcon());
+            slot++;
+            if ((slot + 1) % 9 == 0) slot += 2;
+        }
+        
+        // Back button
+        ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
+            "§7Return to main dashboard");
+        gui.setItem(49, back);
+        
+        player.openInventory(gui);
+    }
+    
+    public void openGiveFruitMenu(Player player, FruitType fruit) {
+        Inventory gui = Bukkit.createInventory(null, 54, "§8§l✦ §6§lGIVE FRUIT §8§l✦");
+        
+        // Border
+        ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+        ItemMeta borderMeta = border.getItemMeta();
+        borderMeta.displayName(Component.text(" "));
+        border.setItemMeta(borderMeta);
+        
+        for (int i = 0; i < 54; i++) {
+            if (i < 9 || i >= 45 || i % 9 == 0 || i % 9 == 8) {
+                gui.setItem(i, border);
+            }
+        }
+        
+        gui.setItem(22, fruit.getIcon());
+        
+        int slot = 28;
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+            SkullMeta meta = (SkullMeta) head.getItemMeta();
+            meta.setOwningPlayer(online);
+            meta.displayName(Component.text("§a§l" + online.getName()));
+            
+            List<Component> lore = new ArrayList<>();
+            lore.add(Component.text("§7Click to give §e" + fruit.getDisplayName()));
+            lore.add(Component.text("§7to this player!"));
+            meta.lore(lore);
+            
+            head.setItemMeta(meta);
+            gui.setItem(slot, head);
+            slot++;
+            if ((slot + 1) % 9 == 0) slot += 2;
+            if (slot > 43) break;
+        }
+        
+        // Back button
+        ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
+            "§7Return to fruits menu");
+        gui.setItem(49, back);
+        
+        player.openInventory(gui);
+    }
+    
+    public void openPlayerMenu(Player player) {
+        Inventory gui = Bukkit.createInventory(null, 54, "§8§l✦ §6§lPLAYER MENU §8§l✦");
+        
+        // Border
+        ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+        ItemMeta borderMeta = border.getItemMeta();
+        borderMeta.displayName(Component.text(" "));
+        border.setItemMeta(borderMeta);
+        
+        for (int i = 0; i < 54; i++) {
+            if (i < 9 || i >= 45 || i % 9 == 0 || i % 9 == 8) {
+                gui.setItem(i, border);
+            }
+        }
+        
+        // Spin all button
+        ItemStack spinAll = createMenuItem(Material.NETHER_STAR, "§c§l✦ SPIN ALL PLAYERS ✦",
+            "§7Start fruit spin for all",
+            "§7online players!");
+        gui.setItem(22, spinAll);
+        
+        // Player list
+        int slot = 28;
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+            SkullMeta meta = (SkullMeta) head.getItemMeta();
+            meta.setOwningPlayer(online);
+            meta.displayName(Component.text("§b§l" + online.getName()));
+            
+            List<Component> lore = new ArrayList<>();
+            lore.add(Component.text("§7• §eLeft Click: §fStart spin"));
+            lore.add(Component.text("§7• §eRight Click: §fGive fruit menu"));
+            meta.lore(lore);
+            
+            head.setItemMeta(meta);
+            gui.setItem(slot, head);
+            slot++;
+            if ((slot + 1) % 9 == 0) slot += 2;
+            if (slot > 43) break;
+        }
+        
+        // Back button
+        ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
+            "§7Return to main dashboard");
+        gui.setItem(49, back);
+        
+        player.openInventory(gui);
+    }
+    
+    public void openSpinControl(Player player) {
+        Inventory gui = Bukkit.createInventory(null, 27, "§8§l✦ §6§lSPIN CONTROL §8§l✦");
+        
+        gui.setItem(11, createMenuItem(Material.NETHER_STAR, "§6§l✦ SPIN YOURSELF ✦",
+            "§7Start a fruit spin for yourself"));
+        
+        gui.setItem(13, createMenuItem(Material.PLAYER_HEAD, "§b§l✦ SPIN SPECIFIC ✦",
+            "§7Start spin for a specific player"));
+        
+        gui.setItem(15, createMenuItem(Material.DRAGON_HEAD, "§c§l✦ SPIN ALL ✦",
+            "§7Start spin for all online players"));
+        
+        // Back button
+        ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
+            "§7Return to main dashboard");
+        gui.setItem(22, back);
+        
+        player.openInventory(gui);
+    }
+    
+    private ItemStack createMenuItem(Material material, String name, String... lore) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
         meta.displayName(Component.text(name));
-        List<Component> loreList = Arrays.stream(lore).map(Component::text).toList();
+        List<Component> loreList = new ArrayList<>();
+        for (String line : lore) {
+            loreList.add(Component.text(line));
+        }
         meta.lore(loreList);
         item.setItemMeta(meta);
         return item;
@@ -248,24 +426,15 @@ public class FruitMenuGUI implements Listener {
                 }
                 player.sendMessage("§aStarted spin for all online players!");
                 player.closeInventory();
-            } else if (name.startsWith("SPIN: ")) {
-                String targetName = name.substring(6);
-                Player target = Bukkit.getPlayer(targetName);
-                if (target != null) {
-                    plugin.getSpinManager().startFruitSpin(target);
-                    player.sendMessage("§aStarted spin for §e" + targetName);
-                    player.closeInventory();
-                }
             } else {
                 Player target = Bukkit.getPlayer(name);
                 if (target != null) {
-                    // Left click = spin, Right click = give menu (handled by click type)
+                    // Left click = spin, Right click = give menu
                     if (event.isLeftClick()) {
                         plugin.getSpinManager().startFruitSpin(target);
                         player.sendMessage("§aStarted spin for §e" + target.getName());
                         player.closeInventory();
                     } else if (event.isRightClick()) {
-                        // Open give menu for this player
                         player.closeInventory();
                         player.sendMessage("§ePlease use the fruits menu to give fruits!");
                     }
@@ -298,4 +467,4 @@ public class FruitMenuGUI implements Listener {
             }
         }
     }
-                                       }
+}
