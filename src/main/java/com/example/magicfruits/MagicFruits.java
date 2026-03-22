@@ -9,6 +9,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -471,7 +472,6 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             player.sendMessage("§cYour magical fruit data has been reset!");
             player.closeInventory();
         } else if (name.equals("RESET PLAYER DATA")) {
-            // This would open player selection - simplified for now
             player.sendMessage("§ePlease use: /magicfruits reset <player>");
             player.closeInventory();
         } else if (name.equals("RESET ALL DATA")) {
