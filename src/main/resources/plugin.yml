@@ -2,13 +2,13 @@ name: MagicFruits
 version: 1.0.0
 main: com.example.magicfruits.MagicFruits
 api-version: '1.21'
-author: minetwice 
+author: YourName
 description: Advanced magical fruits plugin with spinning mechanics and unique abilities
 
 commands:
   magicfruits:
     description: Main command for MagicFruits plugin
-    usage: /<command> [spin|give] [player] [fruit]
+    usage: /<command> [spin|give|dashboard|reload|reset] [player] [fruit]
     aliases: [mf, fruits]
     permission: magicfruits.admin
 
