@@ -1,0 +1,1 @@
+package com.example.magicfruits.managers; public class CooldownManager {}
