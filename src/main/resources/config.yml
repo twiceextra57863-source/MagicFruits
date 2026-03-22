@@ -20,6 +20,9 @@ settings:
   particles-enabled: true
   sounds-enabled: true
 
+# Reset players list (auto-managed)
+reset-players: []
+
 messages:
   prefix: "§8[§6MagicFruits§8] §r"
   cooldown: "§c§l⚠ §fAbility on cooldown! §7(%seconds% seconds)"
@@ -28,3 +31,5 @@ messages:
   ability-activated: "§6§l✨ Ability Activated! ✨"
   death-drop: "§c§l💀 §fYour magical fruits have been dropped on death!"
   first-join-spin: "§a§l✨ Welcome! Starting your magical fruit spin! ✨"
+  data-reset: "§c§l⚠ §fYour magical fruit data has been reset by an admin!"
+  data-reset-all: "§c§l⚠ §6MagicFruits §f- All player data has been reset!"
