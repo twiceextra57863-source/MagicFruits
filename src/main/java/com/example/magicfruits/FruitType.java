@@ -22,11 +22,11 @@ public enum FruitType {
                  1002,
                  new CrystalAbility()),
     
-    DRAGON_FRUIT("§c§l🐉 §4§lDRAGON FRUIT §c§l🐉",
-                "§7§oWrath of the ancient dragons",
-                Material.NETHER_STAR,
-                1003,
-                new DragonAbility()),
+    DRACULA_BITES_FRUIT("§4§l🦇 §c§lDRACULA BITES §4§l🦇",
+                        "§7§oEmbrace the vampire's curse",
+                        Material.NETHER_STAR,
+                        1003,
+                        new DraculaBitesAbility()),
     
     PHOENIX_FRUIT("§6§l🔥 §e§lPHOENIX FRUIT §6§l🔥",
                  "§7§oReborn from eternal flames",
