@@ -12,6 +12,7 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -38,6 +39,14 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     private Map<UUID, Integer> cooldownTasks = new ConcurrentHashMap<>();
     private Map<UUID, FruitType> lastUsedFruit = new ConcurrentHashMap<>();
     private Map<UUID, Integer> adminPage = new ConcurrentHashMap<>();
+    
+    // Settings
+    private boolean firstJoinReward = true;
+    private boolean dropOnDeath = true;
+    private int cooldownTime = 30;
+    private int spinDuration = 15;
+    private boolean particlesEnabled = true;
+    private boolean soundsEnabled = true;
     
     private enum FruitType {
         BUDDHA_FRUIT("§e§l✨ §6§lBUDDHA FRUIT §e§l✨", 
@@ -169,6 +178,12 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             return item;
         }
         
+        public boolean isFruitItem(ItemStack item) {
+            if (item == null || item.getType() == Material.AIR) return false;
+            if (item.getItemMeta() == null || item.getItemMeta().displayName() == null) return false;
+            return item.getItemMeta().displayName().equals(Component.text(displayName));
+        }
+        
         public ItemStack getIcon() {
             ItemStack item = new ItemStack(icon);
             ItemMeta meta = item.getItemMeta();
@@ -225,15 +240,79 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     public void onEnable() {
         instance = this;
         saveDefaultConfig();
+        loadSettings();
         getServer().getPluginManager().registerEvents(this, this);
         Objects.requireNonNull(getCommand("magicfruits")).setExecutor(this);
         Objects.requireNonNull(getCommand("magicfruits")).setTabCompleter(this);
         getLogger().info("§aMagicFruits plugin has been enabled!");
+        getLogger().info("§eFirst Join Reward: " + (firstJoinReward ? "§aENABLED" : "§cDISABLED"));
+        getLogger().info("§eDrop on Death: " + (dropOnDeath ? "§aENABLED" : "§cDISABLED"));
     }
     
     @Override
     public void onDisable() {
+        saveSettings();
         getLogger().info("§cMagicFruits plugin has been disabled!");
+    }
+    
+    private void loadSettings() {
+        FileConfiguration config = getConfig();
+        firstJoinReward = config.getBoolean("settings.first-join-reward", true);
+        dropOnDeath = config.getBoolean("settings.drop-on-death", true);
+        cooldownTime = config.getInt("settings.cooldown-seconds", 30);
+        spinDuration = config.getInt("settings.spin-duration-seconds", 15);
+        particlesEnabled = config.getBoolean("settings.particles-enabled", true);
+        soundsEnabled = config.getBoolean("settings.sounds-enabled", true);
+    }
+    
+    private void saveSettings() {
+        FileConfiguration config = getConfig();
+        config.set("settings.first-join-reward", firstJoinReward);
+        config.set("settings.drop-on-death", dropOnDeath);
+        config.set("settings.cooldown-seconds", cooldownTime);
+        config.set("settings.spin-duration-seconds", spinDuration);
+        config.set("settings.particles-enabled", particlesEnabled);
+        config.set("settings.sounds-enabled", soundsEnabled);
+        saveConfig();
+    }
+    
+    @EventHandler
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        if (!dropOnDeath) return;
+        
+        Player player = event.getEntity();
+        List<ItemStack> drops = new ArrayList<>(event.getDrops());
+        List<ItemStack> fruitsToDrop = new ArrayList<>();
+        
+        for (ItemStack item : drops) {
+            for (FruitType fruit : FruitType.values()) {
+                if (fruit.isFruitItem(item)) {
+                    fruitsToDrop.add(item);
+                    break;
+                }
+            }
+        }
+        
+        if (!fruitsToDrop.isEmpty()) {
+            event.getDrops().removeAll(fruitsToDrop);
+            for (ItemStack fruit : fruitsToDrop) {
+                player.getWorld().dropItemNaturally(player.getLocation(), fruit);
+            }
+            player.sendMessage("§c§l💀 §fYour magical fruits have been dropped on death!");
+        }
+    }
+    
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        if (firstJoinReward && !player.hasPlayedBefore()) {
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    startFruitSpin(player);
+                }
+            }.runTaskLater(this, 20L);
+        }
     }
     
     @EventHandler
@@ -283,6 +362,7 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
                 break;
             case "RELOAD CONFIG":
                 reloadConfig();
+                loadSettings();
                 player.sendMessage("§aConfig reloaded successfully!");
                 player.closeInventory();
                 break;
@@ -297,10 +377,8 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             return;
         }
         
-        // Check if clicked is a fruit
         for (FruitType fruit : FruitType.values()) {
             if (fruit.getDisplayName().equals(name)) {
-                // Open give menu for this fruit
                 openGiveFruitMenu(player, fruit);
                 return;
             }
@@ -329,15 +407,6 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
                 player.sendMessage("§aStarted spin for §e" + targetName);
                 player.closeInventory();
             }
-        } else if (name.startsWith("GIVE: ")) {
-            String targetName = name.substring(6);
-            Player target = Bukkit.getPlayer(targetName);
-            if (target != null && player.hasMetadata("selectedFruit")) {
-                FruitType fruit = (FruitType) player.getMetadata("selectedFruit").get(0).value();
-                target.getInventory().addItem(fruit.createItem());
-                player.sendMessage("§aGave §e" + fruit.getDisplayName() + " §ato §e" + targetName);
-                player.closeInventory();
-            }
         }
     }
     
@@ -350,18 +419,71 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
         }
         
         switch (name) {
+            case "FIRST JOIN REWARD: ✓ ENABLED":
+                firstJoinReward = false;
+                saveSettings();
+                player.sendMessage("§cFirst join reward has been §lDISABLED");
+                openSettingsMenu(player);
+                break;
+            case "FIRST JOIN REWARD: ✗ DISABLED":
+                firstJoinReward = true;
+                saveSettings();
+                player.sendMessage("§aFirst join reward has been §lENABLED");
+                openSettingsMenu(player);
+                break;
+            case "DROP ON DEATH: ✓ ENABLED":
+                dropOnDeath = false;
+                saveSettings();
+                player.sendMessage("§cFruits will §lNOT §cdrop on death anymore");
+                openSettingsMenu(player);
+                break;
+            case "DROP ON DEATH: ✗ DISABLED":
+                dropOnDeath = true;
+                saveSettings();
+                player.sendMessage("§aFruits will §lDROP §aon death");
+                openSettingsMenu(player);
+                break;
             case "COOLDOWN: 30s":
-                // Toggle cooldown or change
-                player.sendMessage("§eCooldown settings coming soon!");
+                // Cycle through cooldown options
+                if (cooldownTime == 30) cooldownTime = 20;
+                else if (cooldownTime == 20) cooldownTime = 15;
+                else if (cooldownTime == 15) cooldownTime = 10;
+                else cooldownTime = 30;
+                saveSettings();
+                player.sendMessage("§eCooldown set to: §f" + cooldownTime + " seconds");
+                openSettingsMenu(player);
                 break;
             case "SPIN DURATION: 15s":
-                player.sendMessage("§eSpin duration settings coming soon!");
+                if (spinDuration == 15) spinDuration = 10;
+                else if (spinDuration == 10) spinDuration = 20;
+                else spinDuration = 15;
+                saveSettings();
+                player.sendMessage("§eSpin duration set to: §f" + spinDuration + " seconds");
+                openSettingsMenu(player);
                 break;
-            case "PARTICLES: ENABLED":
-                player.sendMessage("§eParticle settings coming soon!");
+            case "PARTICLES: ✓ ENABLED":
+                particlesEnabled = false;
+                saveSettings();
+                player.sendMessage("§cParticles have been §lDISABLED");
+                openSettingsMenu(player);
                 break;
-            case "SOUNDS: ENABLED":
-                player.sendMessage("§eSound settings coming soon!");
+            case "PARTICLES: ✗ DISABLED":
+                particlesEnabled = true;
+                saveSettings();
+                player.sendMessage("§aParticles have been §lENABLED");
+                openSettingsMenu(player);
+                break;
+            case "SOUNDS: ✓ ENABLED":
+                soundsEnabled = false;
+                saveSettings();
+                player.sendMessage("§cSounds have been §lDISABLED");
+                openSettingsMenu(player);
+                break;
+            case "SOUNDS: ✗ DISABLED":
+                soundsEnabled = true;
+                saveSettings();
+                player.sendMessage("§aSounds have been §lENABLED");
+                openSettingsMenu(player);
                 break;
         }
     }
@@ -399,6 +521,7 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
         
         gui.setItem(29, createMenuItem(Material.REDSTONE_COMPARATOR, "§e§l✦ GLOBAL SETTINGS ✦",
             "§7Configure plugin settings",
+            "§7First join reward, death drops",
             "§7Cooldown, particles, sounds"));
         
         gui.setItem(31, createMenuItem(Material.PAPER, "§a§l✦ STATISTICS ✦",
@@ -423,7 +546,6 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     private void openFruitsMenu(Player player) {
         Inventory gui = Bukkit.createInventory(null, 54, "§8§l✦ §6§lFRUITS MENU §8§l✦");
         
-        // Border
         ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
         ItemMeta borderMeta = border.getItemMeta();
         borderMeta.displayName(Component.text(" "));
@@ -435,7 +557,6 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             }
         }
         
-        // Add all fruits
         int slot = 10;
         for (FruitType fruit : FruitType.values()) {
             gui.setItem(slot, fruit.getIcon());
@@ -443,7 +564,6 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             if ((slot + 1) % 9 == 0) slot += 2;
         }
         
-        // Back button
         ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
             "§7Return to main dashboard");
         gui.setItem(49, back);
@@ -454,7 +574,6 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     private void openGiveFruitMenu(Player player, FruitType fruit) {
         Inventory gui = Bukkit.createInventory(null, 54, "§8§l✦ §6§lGIVE FRUIT §8§l✦");
         
-        // Border
         ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
         ItemMeta borderMeta = border.getItemMeta();
         borderMeta.displayName(Component.text(" "));
@@ -466,10 +585,8 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             }
         }
         
-        // Fruit info
         gui.setItem(22, fruit.getIcon());
         
-        // Player heads
         int slot = 28;
         for (Player online : Bukkit.getOnlinePlayers()) {
             ItemStack head = new ItemStack(Material.PLAYER_HEAD);
@@ -487,18 +604,17 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             if (slot > 43) break;
         }
         
-        // Back button
         ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
             "§7Return to fruits menu");
         gui.setItem(49, back);
         
+        // Handle click in this GUI
         player.openInventory(gui);
     }
     
     private void openPlayerMenu(Player player) {
         Inventory gui = Bukkit.createInventory(null, 54, "§8§l✦ §6§lPLAYER MENU §8§l✦");
         
-        // Border
         ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
         ItemMeta borderMeta = border.getItemMeta();
         borderMeta.displayName(Component.text(" "));
@@ -510,13 +626,11 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             }
         }
         
-        // Spin all button
         ItemStack spinAll = createMenuItem(Material.NETHER_STAR, "§c§l✦ SPIN ALL PLAYERS ✦",
             "§7Start fruit spin for all",
             "§7online players!");
         gui.setItem(22, spinAll);
         
-        // Player list
         int slot = 28;
         for (Player online : Bukkit.getOnlinePlayers()) {
             ItemStack head = new ItemStack(Material.PLAYER_HEAD);
@@ -534,7 +648,6 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             if (slot > 43) break;
         }
         
-        // Back button
         ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
             "§7Return to main dashboard");
         gui.setItem(49, back);
@@ -554,7 +667,6 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
         gui.setItem(15, createMenuItem(Material.DRAGON_HEAD, "§c§l✦ SPIN ALL ✦",
             "§7Start spin for all online players"));
         
-        // Back button
         ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
             "§7Return to main dashboard");
         gui.setItem(22, back);
@@ -563,44 +675,79 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     }
     
     private void openSettingsMenu(Player player) {
-        Inventory gui = Bukkit.createInventory(null, 27, "§8§l✦ §6§lSETTINGS §8§l✦");
+        Inventory gui = Bukkit.createInventory(null, 54, "§8§l✦ §6§lSETTINGS §8§l✦");
         
-        gui.setItem(10, createMenuItem(Material.CLOCK, "§e§lCOOLDOWN: 30s",
-            "§7Click to change cooldown time"));
+        // Border
+        ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+        ItemMeta borderMeta = border.getItemMeta();
+        borderMeta.displayName(Component.text(" "));
+        border.setItemMeta(borderMeta);
         
-        gui.setItem(12, createMenuItem(Material.SUGAR, "§b§lSPIN DURATION: 15s",
-            "§7Click to change spin duration"));
+        for (int i = 0; i < 54; i++) {
+            if (i < 9 || i >= 45 || i % 9 == 0 || i % 9 == 8) {
+                gui.setItem(i, border);
+            }
+        }
         
-        gui.setItem(14, createMenuItem(Material.FIREWORK_STAR, "§d§lPARTICLES: ENABLED",
-            "§7Click to toggle particles"));
+        // First Join Reward Toggle
+        String firstJoinStatus = firstJoinReward ? "§a✓ ENABLED" : "§c✗ DISABLED";
+        gui.setItem(19, createMenuItem(Material.GOLDEN_APPLE, "§6§lFIRST JOIN REWARD: " + firstJoinStatus,
+            "§7New players get a fruit spin",
+            "§7Click to " + (firstJoinReward ? "disable" : "enable")));
         
-        gui.setItem(16, createMenuItem(Material.NOTE_BLOCK, "§a§lSOUNDS: ENABLED",
-            "§7Click to toggle sounds"));
+        // Drop on Death Toggle
+        String dropStatus = dropOnDeath ? "§a✓ ENABLED" : "§c✗ DISABLED";
+        gui.setItem(20, createMenuItem(Material.SKELETON_SKULL, "§c§lDROP ON DEATH: " + dropStatus,
+            "§7Fruits drop when player dies",
+            "§7Click to " + (dropOnDeath ? "disable" : "enable")));
+        
+        // Cooldown Setting
+        gui.setItem(21, createMenuItem(Material.CLOCK, "§e§lCOOLDOWN: " + cooldownTime + "s",
+            "§7Ability cooldown time",
+            "§7Click to cycle: 30s → 20s → 15s → 10s"));
+        
+        // Spin Duration Setting
+        gui.setItem(22, createMenuItem(Material.SUGAR, "§b§lSPIN DURATION: " + spinDuration + "s",
+            "§7Duration of fruit spin",
+            "§7Click to cycle: 15s → 10s → 20s"));
+        
+        // Particles Toggle
+        String particlesStatus = particlesEnabled ? "§a✓ ENABLED" : "§c✗ DISABLED";
+        gui.setItem(23, createMenuItem(Material.FIREWORK_STAR, "§d§lPARTICLES: " + particlesStatus,
+            "§7Visual particle effects",
+            "§7Click to " + (particlesEnabled ? "disable" : "enable")));
+        
+        // Sounds Toggle
+        String soundsStatus = soundsEnabled ? "§a✓ ENABLED" : "§c✗ DISABLED";
+        gui.setItem(24, createMenuItem(Material.NOTE_BLOCK, "§a§lSOUNDS: " + soundsStatus,
+            "§7Sound effects",
+            "§7Click to " + (soundsEnabled ? "disable" : "enable")));
         
         // Back button
         ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
             "§7Return to main dashboard");
-        gui.setItem(22, back);
+        gui.setItem(49, back);
         
         player.openInventory(gui);
     }
     
     private void showStatistics(Player player) {
-        int totalPlayers = Bukkit.getOnlinePlayers().size();
-        int totalFruitsGiven = 0; // You can track this in config
-        
         Inventory stats = Bukkit.createInventory(null, 27, "§8§l✦ §6§lSTATISTICS §8§l✦");
         
         stats.setItem(11, createMenuItem(Material.PLAYER_HEAD, "§a§lONLINE PLAYERS",
-            "§7" + totalPlayers + " players online"));
+            "§7" + Bukkit.getOnlinePlayers().size() + " players online"));
         
-        stats.setItem(13, createMenuItem(Material.CHEST, "§b§lFRUITS GIVEN",
-            "§7" + totalFruitsGiven + " fruits total"));
+        stats.setItem(13, createMenuItem(Material.CHEST, "§b§lPLUGIN SETTINGS",
+            "§7First Join Reward: " + (firstJoinReward ? "§aON" : "§cOFF"),
+            "§7Drop on Death: " + (dropOnDeath ? "§aON" : "§cOFF"),
+            "§7Cooldown: §f" + cooldownTime + "s",
+            "§7Spin Duration: §f" + spinDuration + "s",
+            "§7Particles: " + (particlesEnabled ? "§aON" : "§cOFF"),
+            "§7Sounds: " + (soundsEnabled ? "§aON" : "§cOFF")));
         
         stats.setItem(15, createMenuItem(Material.NETHER_STAR, "§6§lACTIVE SPINS",
             "§7" + spinActive.size() + " active spins"));
         
-        // Back button
         ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
             "§7Return to main dashboard");
         stats.setItem(22, back);
@@ -622,19 +769,6 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     }
     
     @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-        if (!player.hasPlayedBefore()) {
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    startFruitSpin(player);
-                }
-            }.runTaskLater(this, 20L);
-        }
-    }
-    
-    @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         ItemStack item = player.getInventory().getItemInMainHand();
@@ -642,18 +776,16 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
         if (item == null || item.getType() == Material.AIR) return;
         
         for (FruitType fruit : FruitType.values()) {
-            if (item.getItemMeta() != null && item.getItemMeta().displayName() != null &&
-                item.getItemMeta().displayName().equals(Component.text(fruit.displayName))) {
-                
+            if (fruit.isFruitItem(item)) {
                 event.setCancelled(true);
                 long currentTime = System.currentTimeMillis();
                 long lastUse = abilityCooldown.getOrDefault(player.getUniqueId(), 0L);
-                long timeLeft = 30000 - (currentTime - lastUse);
+                long timeLeft = (cooldownTime * 1000L) - (currentTime - lastUse);
                 
-                if (currentTime - lastUse < 30000) {
+                if (currentTime - lastUse < (cooldownTime * 1000L)) {
                     long remaining = timeLeft / 1000;
                     player.sendMessage("§c§l⚠ §fAbility on cooldown! §7(" + remaining + " seconds remaining)");
-                    showCooldownOnXPBar(player, (int) (timeLeft / 1000), fruit);
+                    showCooldownOnXPBar(player, (int) remaining, fruit);
                     return;
                 }
                 
@@ -676,14 +808,17 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             Bukkit.getScheduler().cancelTask(cooldownTasks.get(player.getUniqueId()));
         }
         
-        new BukkitRunnable() {
-            int secondsLeft = 30;
+        int taskId = new BukkitRunnable() {
+            int secondsLeft = cooldownTime;
             
             @Override
             public void run() {
                 if (secondsLeft <= 0) {
                     player.setExp(0);
                     player.setLevel(0);
+                    if (soundsEnabled) {
+                        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 2.0f);
+                    }
                     player.sendActionBar(Component.text("§a§l✓ §f" + fruit.getDisplayName() + " §a§lREADY!"));
                     cooldownTasks.remove(player.getUniqueId());
                     this.cancel();
@@ -693,11 +828,13 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
                 showCooldownOnXPBar(player, secondsLeft, fruit);
                 secondsLeft--;
             }
-        }.runTaskTimer(this, 0L, 20L);
+        }.runTaskTimer(this, 0L, 20L).getTaskId();
+        
+        cooldownTasks.put(player.getUniqueId(), taskId);
     }
     
     private void showCooldownOnXPBar(Player player, int secondsLeft, FruitType fruit) {
-        float progress = (float) secondsLeft / 30.0f;
+        float progress = (float) secondsLeft / (float) cooldownTime;
         player.setExp(progress);
         player.setLevel(secondsLeft);
         
@@ -715,16 +852,20 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     private void executePrimaryAbility(Player player, FruitType fruit) {
         player.addPotionEffect(new PotionEffect(fruit.primaryEffect, 200, 2));
         
-        Location loc = player.getLocation();
-        for (int i = 0; i < 50; i++) {
-            double angle = Math.random() * 2 * Math.PI;
-            double radius = Math.random() * 2;
-            double x = Math.cos(angle) * radius;
-            double z = Math.sin(angle) * radius;
-            player.getWorld().spawnParticle(Particle.ENCHANT, loc.clone().add(x, 1 + Math.random(), z), 0, 0, 0, 0, 1);
+        if (particlesEnabled) {
+            Location loc = player.getLocation();
+            for (int i = 0; i < 50; i++) {
+                double angle = Math.random() * 2 * Math.PI;
+                double radius = Math.random() * 2;
+                double x = Math.cos(angle) * radius;
+                double z = Math.sin(angle) * radius;
+                player.getWorld().spawnParticle(Particle.ENCHANT, loc.clone().add(x, 1 + Math.random(), z), 0, 0, 0, 0, 1);
+            }
         }
         
-        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+        if (soundsEnabled) {
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+        }
         
         player.showTitle(Title.title(
             Component.text("§6§l✦ " + fruit.displayName + " §6§l✦"),
@@ -739,46 +880,46 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
         switch (fruit) {
             case BUDDHA_FRUIT:
                 player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 100, 4));
-                player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.0f);
+                if (soundsEnabled) player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.0f);
                 break;
             case CRYSTAL_FRUIT:
-                player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation(), 100, 1, 1, 1, 0.5);
-                player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.5f);
+                if (particlesEnabled) player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation(), 100, 1, 1, 1, 0.5);
+                if (soundsEnabled) player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.5f);
                 break;
             case DRAGON_FRUIT:
                 player.getWorld().createExplosion(player.getLocation(), 3, false, false, player);
-                player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 0.5f);
+                if (soundsEnabled) player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 0.5f);
                 break;
             case PHOENIX_FRUIT:
                 player.setHealth(20);
                 player.setFireTicks(0);
-                player.getWorld().spawnParticle(Particle.FLAME, player.getLocation(), 200, 1, 1, 1, 0.5);
-                player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_DEATH, 1.0f, 1.0f);
+                if (particlesEnabled) player.getWorld().spawnParticle(Particle.FLAME, player.getLocation(), 200, 1, 1, 1, 0.5);
+                if (soundsEnabled) player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_DEATH, 1.0f, 1.0f);
                 break;
             case VOID_FRUIT:
                 Location randomLoc = player.getLocation().add(Math.random() * 20 - 10, 0, Math.random() * 20 - 10);
                 randomLoc.setY(player.getWorld().getHighestBlockYAt(randomLoc));
                 player.teleport(randomLoc);
-                player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
+                if (soundsEnabled) player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
                 break;
             case THUNDER_FRUIT:
                 Block targetBlock = player.getTargetBlock(null, 50);
                 if (targetBlock != null) {
                     player.getWorld().strikeLightning(targetBlock.getLocation());
-                    player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
+                    if (soundsEnabled) player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
                 }
                 break;
             case NATURE_FRUIT:
-                player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation(), 100, 2, 2, 2);
-                player.playSound(player.getLocation(), Sound.BLOCK_GRASS_PLACE, 1.0f, 1.0f);
+                if (particlesEnabled) player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation(), 100, 2, 2, 2);
+                if (soundsEnabled) player.playSound(player.getLocation(), Sound.BLOCK_GRASS_PLACE, 1.0f, 1.0f);
                 break;
             case ICE_FRUIT:
-                player.getWorld().spawnParticle(Particle.ITEM_SNOWBALL, player.getLocation(), 200, 3, 1, 3);
-                player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, 1.0f, 0.5f);
+                if (particlesEnabled) player.getWorld().spawnParticle(Particle.ITEM_SNOWBALL, player.getLocation(), 200, 3, 1, 3);
+                if (soundsEnabled) player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, 1.0f, 0.5f);
                 break;
             case STAR_FRUIT:
                 player.setAllowFlight(true);
-                player.playSound(player.getLocation(), Sound.ENTITY_ILLUSIONER_CAST_SPELL, 1.0f, 1.0f);
+                if (soundsEnabled) player.playSound(player.getLocation(), Sound.ENTITY_ILLUSIONER_CAST_SPELL, 1.0f, 1.0f);
                 new BukkitRunnable() {
                     @Override
                     public void run() {
@@ -794,7 +935,7 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
                         player.setHealth(Math.min(20, player.getHealth() + 2));
                     }
                 });
-                player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SHOOT, 1.0f, 0.8f);
+                if (soundsEnabled) player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SHOOT, 1.0f, 0.8f);
                 break;
         }
         
@@ -809,6 +950,7 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
         if (spinActive.getOrDefault(player.getUniqueId(), false)) return;
         
         spinActive.put(player.getUniqueId(), true);
+        int durationTicks = spinDuration * 20;
         
         new BukkitRunnable() {
             int ticks = 0;
@@ -817,19 +959,23 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             
             @Override
             public void run() {
-                if (ticks >= 300 || !spinActive.get(player.getUniqueId())) {
+                if (ticks >= durationTicks || !spinActive.get(player.getUniqueId())) {
                     FruitType selected = fruits.get(currentIndex % fruits.size());
                     lastSelectedFruit.put(player.getUniqueId(), selected);
                     player.getInventory().addItem(selected.createItem());
                     
-                    for (int i = 0; i < 360; i += 10) {
-                        double rad = Math.toRadians(i);
-                        double x = Math.cos(rad) * 3;
-                        double z = Math.sin(rad) * 3;
-                        player.getWorld().spawnParticle(Particle.FIREWORK, player.getLocation().clone().add(x, 2, z), 0, 0, 0, 0, 1);
+                    if (particlesEnabled) {
+                        for (int i = 0; i < 360; i += 10) {
+                            double rad = Math.toRadians(i);
+                            double x = Math.cos(rad) * 3;
+                            double z = Math.sin(rad) * 3;
+                            player.getWorld().spawnParticle(Particle.FIREWORK, player.getLocation().clone().add(x, 2, z), 0, 0, 0, 0, 1);
+                        }
                     }
                     
-                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 2.0f);
+                    if (soundsEnabled) {
+                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 2.0f);
+                    }
                     
                     player.showTitle(Title.title(
                         Component.text("§6§l🎉 YOU GOT! 🎉"),
@@ -847,12 +993,14 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
                     currentIndex++;
                     FruitType current = fruits.get(currentIndex % fruits.size());
                     
-                    for (int i = 0; i < 36; i++) {
-                        double angle = Math.toRadians(i * 10 + ticks * 3);
-                        double radius = 3;
-                        double x = Math.cos(angle) * radius;
-                        double z = Math.sin(angle) * radius;
-                        player.getWorld().spawnParticle(Particle.ENCHANT, player.getLocation().clone().add(x, 2, z), 0, 0, 0, 0, 1);
+                    if (particlesEnabled) {
+                        for (int i = 0; i < 36; i++) {
+                            double angle = Math.toRadians(i * 10 + ticks * 3);
+                            double radius = 3;
+                            double x = Math.cos(angle) * radius;
+                            double z = Math.sin(angle) * radius;
+                            player.getWorld().spawnParticle(Particle.ENCHANT, player.getLocation().clone().add(x, 2, z), 0, 0, 0, 0, 1);
+                        }
                     }
                     
                     player.sendActionBar(Component.text("§6§l⟳ §eSpinning: §f" + current.displayName + " §6§l⟳"));
@@ -920,6 +1068,10 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             } else {
                 sender.sendMessage("§cThis command can only be used by players!");
             }
+        } else if (args[0].equalsIgnoreCase("reload")) {
+            reloadConfig();
+            loadSettings();
+            sender.sendMessage("§aMagicFruits configuration reloaded!");
         }
         
         return true;
@@ -928,7 +1080,7 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("spin", "give", "dashboard");
+            return Arrays.asList("spin", "give", "dashboard", "reload");
         } else if (args.length == 2 && args[0].equalsIgnoreCase("give")) {
             return null;
         } else if (args.length == 3 && args[0].equalsIgnoreCase("give")) {
