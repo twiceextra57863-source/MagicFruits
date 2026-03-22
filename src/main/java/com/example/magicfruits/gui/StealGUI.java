@@ -170,8 +170,8 @@ public class StealGUI implements Listener {
         
         // Visual effects
         if (plugin.getDataManager().isParticlesEnabled()) {
-            thief.getWorld().spawnParticle(Particle.SPELL_MOB, thief.getLocation(), 100, 1, 1, 1, 0.5);
-            target.getWorld().spawnParticle(Particle.SPELL_MOB, target.getLocation(), 100, 1, 1, 1, 0.5);
+            thief.getWorld().spawnParticle(Particle.PORTAL, thief.getLocation(), 100, 1, 1, 1, 0.5);
+            target.getWorld().spawnParticle(Particle.PORTAL, target.getLocation(), 100, 1, 1, 1, 0.5);
         }
         
         if (plugin.getDataManager().isSoundsEnabled()) {
