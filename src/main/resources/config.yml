@@ -4,8 +4,19 @@ plugin:
   name: MagicFruits
 
 settings:
-  spin-duration: 15
-  cooldown: 30
+  # First join reward - new players get a fruit spin
+  first-join-reward: true
+  
+  # Drop on death - fruits drop when player dies
+  drop-on-death: true
+  
+  # Cooldown time in seconds for fruit abilities
+  cooldown-seconds: 30
+  
+  # Spin duration in seconds
+  spin-duration-seconds: 15
+  
+  # Visual effects
   particles-enabled: true
   sounds-enabled: true
 
@@ -15,3 +26,5 @@ messages:
   no-permission: "§cYou don't have permission to use this!"
   fruit-received: "§a§l✦ You received a mystical fruit! ✦"
   ability-activated: "§6§l✨ Ability Activated! ✨"
+  death-drop: "§c§l💀 §fYour magical fruits have been dropped on death!"
+  first-join-spin: "§a§l✨ Welcome! Starting your magical fruit spin! ✨"
