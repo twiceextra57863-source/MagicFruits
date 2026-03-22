@@ -13,49 +13,49 @@ import java.util.List;
 public enum FruitType {
     BUDDHA_FRUIT("§e§l✨ §6§lBUDDHA FRUIT §e§l✨", 
                 "§7§oEnlightened by ancient wisdom",
-                Material.GOLDEN_APPLE,
+                Material.NETHER_STAR,
                 1001,
                 new BuddhaAbility()),
     
     CRYSTAL_FRUIT("§b§l💎 §3§lCRYSTAL FRUIT §b§l💎",
                  "§7§oPure crystalline power",
-                 Material.DIAMOND,
+                 Material.NETHER_STAR,
                  1002,
                  new CrystalAbility()),
     
     DRAGON_FRUIT("§c§l🐉 §4§lDRAGON FRUIT §c§l🐉",
                 "§7§oWrath of the ancient dragons",
-                Material.FIREWORK_ROCKET,
+                Material.NETHER_STAR,
                 1003,
                 new DragonAbility()),
     
     PHOENIX_FRUIT("§6§l🔥 §e§lPHOENIX FRUIT §6§l🔥",
                  "§7§oReborn from eternal flames",
-                 Material.BLAZE_ROD,
+                 Material.NETHER_STAR,
                  1004,
                  new PhoenixAbility()),
     
     VOID_FRUIT("§5§l🌑 §8§lVOID FRUIT §5§l🌑",
               "§7§oEmbrace the darkness within",
-              Material.ENDER_PEARL,
+              Material.NETHER_STAR,
               1005,
               new VoidAbility()),
     
     THUNDER_FRUIT("§3§l⚡ §b§lTHUNDER FRUIT §3§l⚡",
                  "§7§oCommand the storm itself",
-                 Material.TRIDENT,
+                 Material.NETHER_STAR,
                  1006,
                  new ThunderAbility()),
     
     NATURE_FRUIT("§2§l🌿 §a§lNATURE FRUIT §2§l🌿",
                 "§7§oOne with the natural world",
-                Material.OAK_SAPLING,
+                Material.NETHER_STAR,
                 1007,
                 new NatureAbility()),
     
     ICE_FRUIT("§b§l❄️ §f§lICE FRUIT §b§l❄️",
              "§7§oFreeze your enemies solid",
-             Material.SNOWBALL,
+             Material.NETHER_STAR,
              1008,
              new IceAbility()),
     
@@ -67,13 +67,13 @@ public enum FruitType {
     
     THIEF_FRUIT("§8§l🎭 §0§lTHIEF FRUIT §8§l🎭",
                "§7§oSteal abilities from others",
-               Material.ENDER_EYE,
+               Material.NETHER_STAR,
                1010,
                new ThiefAbility()),
     
     BLOOD_FRUIT("§4§l🩸 §c§lBLOOD FRUIT §4§l🩸",
                "§7§oSacrifice for ultimate power",
-               Material.REDSTONE,
+               Material.NETHER_STAR,
                1011,
                new BloodAbility());
     
@@ -98,9 +98,6 @@ public enum FruitType {
         
         meta.displayName(Component.text(displayName).decoration(TextDecoration.ITALIC, false));
         meta.setCustomModelData(customModelData);
-        
-        // Make item unbreakable to prevent consumption
-        meta.setUnbreakable(true);
         
         List<Component> lore = new ArrayList<>();
         lore.add(Component.empty());
@@ -138,7 +135,10 @@ public enum FruitType {
     
     public boolean isFruitItem(ItemStack item) {
         if (item == null || item.getType() == Material.AIR) return false;
-        if (item.getItemMeta() == null || item.getItemMeta().displayName() == null) return false;
+        if (item.getItemMeta() == null) return false;
+        if (item.getItemMeta().displayName() == null) return false;
+        
+        // Compare using component equality
         return item.getItemMeta().displayName().equals(Component.text(displayName));
     }
     
@@ -158,8 +158,18 @@ public enum FruitType {
     
     public static FruitType fromItem(ItemStack item) {
         if (item == null) return null;
+        if (item.getType() != Material.NETHER_STAR) return null;
+        if (item.getItemMeta() == null) return null;
+        if (item.getItemMeta().displayName() == null) return null;
+        
         for (FruitType fruit : values()) {
-            if (fruit.isFruitItem(item)) return fruit;
+            if (fruit.getDisplayName().equals(item.getItemMeta().displayName().toString())) {
+                return fruit;
+            }
+            // Also try direct component comparison
+            if (item.getItemMeta().displayName().equals(Component.text(fruit.getDisplayName()))) {
+                return fruit;
+            }
         }
         return null;
     }
