@@ -3,9 +3,11 @@ package com.example.magicfruits;
 import com.example.magicfruits.abilities.Ability;
 import com.example.magicfruits.gui.AdminGUI;
 import com.example.magicfruits.managers.*;
+import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -112,6 +114,13 @@ public final class MagicFruits extends JavaPlugin implements Listener {
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
+        
+        // Check if it's a right-click action
+        Action action = event.getAction();
+        if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+        
         ItemStack item = player.getInventory().getItemInMainHand();
         FruitType fruit = FruitType.fromItem(item);
         
@@ -122,7 +131,7 @@ public final class MagicFruits extends JavaPlugin implements Listener {
             long currentTime = System.currentTimeMillis();
             long lastInteract = lastInteractTime.getOrDefault(player.getUniqueId(), 0L);
             if (currentTime - lastInteract < 500) {
-                return; // Prevent spam
+                return;
             }
             lastInteractTime.put(player.getUniqueId(), currentTime);
             
