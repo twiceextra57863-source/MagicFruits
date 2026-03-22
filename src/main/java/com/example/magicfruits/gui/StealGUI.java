@@ -17,7 +17,6 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
 
@@ -171,8 +170,8 @@ public class StealGUI implements Listener {
         
         // Visual effects
         if (plugin.getDataManager().isParticlesEnabled()) {
-            thief.getWorld().spawnParticle(Particle.SPELL_WITCH, thief.getLocation(), 100, 1, 1, 1, 0.5);
-            target.getWorld().spawnParticle(Particle.SPELL_WITCH, target.getLocation(), 100, 1, 1, 1, 0.5);
+            thief.getWorld().spawnParticle(Particle.SPELL_MOB, thief.getLocation(), 100, 1, 1, 1, 0.5);
+            target.getWorld().spawnParticle(Particle.SPELL_MOB, target.getLocation(), 100, 1, 1, 1, 0.5);
         }
         
         if (plugin.getDataManager().isSoundsEnabled()) {
