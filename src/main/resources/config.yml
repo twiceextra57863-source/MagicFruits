@@ -1,1 +1,17 @@
-# Configuration file
+# MagicFruits Configuration
+plugin:
+  version: 1.0.0
+  name: MagicFruits
+
+settings:
+  spin-duration: 15
+  cooldown: 30
+  particles-enabled: true
+  sounds-enabled: true
+
+messages:
+  prefix: "§8[§6MagicFruits§8] §r"
+  cooldown: "§c§l⚠ §fAbility on cooldown! §7(%seconds% seconds)"
+  no-permission: "§cYou don't have permission to use this!"
+  fruit-received: "§a§l✦ You received a mystical fruit! ✦"
+  ability-activated: "§6§l✨ Ability Activated! ✨"
