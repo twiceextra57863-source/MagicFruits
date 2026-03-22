@@ -1,0 +1,1 @@
+package com.example.magicfruits; public enum FruitType {}
