@@ -1,0 +1,1 @@
+package com.example.magicfruits.gui; public class FruitMenuGUI {}
