@@ -13,6 +13,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -184,7 +185,10 @@ public class AdminGUI implements Listener {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
         meta.displayName(Component.text(name));
-        List<Component> loreList = Arrays.stream(lore).map(Component::text).toList();
+        List<Component> loreList = new ArrayList<>();
+        for (String line : lore) {
+            loreList.add(Component.text(line));
+        }
         meta.lore(loreList);
         item.setItemMeta(meta);
         return item;
@@ -319,4 +323,4 @@ public class AdminGUI implements Listener {
             openSettingsMenu(player);
         }
     }
-                                                        }
+}
