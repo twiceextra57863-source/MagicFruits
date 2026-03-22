@@ -8,7 +8,9 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.HashMap;
@@ -25,6 +27,7 @@ public final class MagicFruits extends JavaPlugin implements Listener {
     private CommandHandler commandHandler;
     private Map<UUID, Ability> stolenAbilities = new HashMap<>();
     private Map<UUID, Long> stolenAbilityExpiry = new HashMap<>();
+    private Map<UUID, Long> lastConsumeTime = new HashMap<>();
     
     @Override
     public void onEnable() {
@@ -88,10 +91,10 @@ public final class MagicFruits extends JavaPlugin implements Listener {
         if (!dataManager.isDropOnDeath()) return;
         
         Player player = event.getEntity();
-        java.util.List<org.bukkit.inventory.ItemStack> drops = new java.util.ArrayList<>(event.getDrops());
-        java.util.List<org.bukkit.inventory.ItemStack> fruitsToDrop = new java.util.ArrayList<>();
+        java.util.List<ItemStack> drops = new java.util.ArrayList<>(event.getDrops());
+        java.util.List<ItemStack> fruitsToDrop = new java.util.ArrayList<>();
         
-        for (org.bukkit.inventory.ItemStack item : drops) {
+        for (ItemStack item : drops) {
             FruitType fruit = FruitType.fromItem(item);
             if (fruit != null) {
                 fruitsToDrop.add(item);
@@ -100,7 +103,7 @@ public final class MagicFruits extends JavaPlugin implements Listener {
         
         if (!fruitsToDrop.isEmpty()) {
             event.getDrops().removeAll(fruitsToDrop);
-            for (org.bukkit.inventory.ItemStack fruit : fruitsToDrop) {
+            for (ItemStack fruit : fruitsToDrop) {
                 player.getWorld().dropItemNaturally(player.getLocation(), fruit);
             }
             player.sendMessage("§c§l💀 §fYour magical fruits have been dropped on death!");
@@ -108,13 +111,21 @@ public final class MagicFruits extends JavaPlugin implements Listener {
     }
     
     @EventHandler
-    public void onPlayerInteract(PlayerInteractEvent event) {
+    public void onPlayerItemConsume(PlayerItemConsumeEvent event) {
         Player player = event.getPlayer();
-        org.bukkit.inventory.ItemStack item = player.getInventory().getItemInMainHand();
+        ItemStack item = event.getItem();
         FruitType fruit = FruitType.fromItem(item);
         
         if (fruit != null) {
             event.setCancelled(true);
+            
+            // Prevent spam consumption
+            long currentTime = System.currentTimeMillis();
+            long lastConsume = lastConsumeTime.getOrDefault(player.getUniqueId(), 0L);
+            if (currentTime - lastConsume < 500) {
+                return; // Prevent spam (500ms cooldown between consumptions)
+            }
+            lastConsumeTime.put(player.getUniqueId(), currentTime);
             
             // Check stolen ability
             if (stolenAbilities.containsKey(player.getUniqueId())) {
