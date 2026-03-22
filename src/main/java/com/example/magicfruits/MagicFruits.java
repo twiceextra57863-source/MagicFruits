@@ -39,6 +39,7 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     private Map<UUID, Integer> cooldownTasks = new ConcurrentHashMap<>();
     private Map<UUID, FruitType> lastUsedFruit = new ConcurrentHashMap<>();
     private Map<UUID, Integer> adminPage = new ConcurrentHashMap<>();
+    private Set<UUID> resetPlayers = new HashSet<>();
     
     // Settings
     private boolean firstJoinReward = true;
@@ -241,6 +242,7 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
         instance = this;
         saveDefaultConfig();
         loadSettings();
+        loadResetData();
         getServer().getPluginManager().registerEvents(this, this);
         Objects.requireNonNull(getCommand("magicfruits")).setExecutor(this);
         Objects.requireNonNull(getCommand("magicfruits")).setTabCompleter(this);
@@ -252,6 +254,7 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     @Override
     public void onDisable() {
         saveSettings();
+        saveResetData();
         getLogger().info("§cMagicFruits plugin has been disabled!");
     }
     
@@ -274,6 +277,71 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
         config.set("settings.particles-enabled", particlesEnabled);
         config.set("settings.sounds-enabled", soundsEnabled);
         saveConfig();
+    }
+    
+    private void loadResetData() {
+        FileConfiguration config = getConfig();
+        List<String> resetUUIDs = config.getStringList("reset-players");
+        resetPlayers.clear();
+        for (String uuid : resetUUIDs) {
+            resetPlayers.add(UUID.fromString(uuid));
+        }
+    }
+    
+    private void saveResetData() {
+        FileConfiguration config = getConfig();
+        List<String> resetUUIDs = new ArrayList<>();
+        for (UUID uuid : resetPlayers) {
+            resetUUIDs.add(uuid.toString());
+        }
+        config.set("reset-players", resetUUIDs);
+        saveConfig();
+    }
+    
+    private void resetPlayerData(Player player) {
+        UUID uuid = player.getUniqueId();
+        
+        // Clear all player data
+        spinActive.remove(uuid);
+        spinTaskIds.remove(uuid);
+        lastSelectedFruit.remove(uuid);
+        abilityCooldown.remove(uuid);
+        cooldownTasks.remove(uuid);
+        lastUsedFruit.remove(uuid);
+        
+        // Mark player as reset
+        resetPlayers.add(uuid);
+        saveResetData();
+        
+        // Clear all fruits from inventory
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item != null) {
+                for (FruitType fruit : FruitType.values()) {
+                    if (fruit.isFruitItem(item)) {
+                        player.getInventory().remove(item);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        player.sendMessage("§c§l⚠ §fYour magical fruit data has been reset by an admin!");
+        player.sendMessage("§aYou will receive a new fruit spin on your next join!");
+    }
+    
+    private void resetAllPlayersData() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            resetPlayerData(player);
+        }
+        
+        // Also clear offline player data
+        FileConfiguration config = getConfig();
+        config.set("reset-players", null);
+        saveConfig();
+        resetPlayers.clear();
+        
+        Bukkit.broadcastMessage("§c§l⚠ §6MagicFruits §f- All player data has been reset by an admin!");
+        Bukkit.broadcastMessage("§aAll players will receive a new fruit spin on their next join!");
     }
     
     @EventHandler
@@ -305,7 +373,22 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        if (firstJoinReward && !player.hasPlayedBefore()) {
+        UUID uuid = player.getUniqueId();
+        
+        // Check if player data was reset
+        if (resetPlayers.contains(uuid)) {
+            resetPlayers.remove(uuid);
+            saveResetData();
+            // Remove the "played before" flag by not checking hasPlayedBefore
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    startFruitSpin(player);
+                }
+            }.runTaskLater(this, 20L);
+        } 
+        // Normal first join reward
+        else if (firstJoinReward && !player.hasPlayedBefore()) {
             new BukkitRunnable() {
                 @Override
                 public void run() {
@@ -318,16 +401,17 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
-        if (event.getView().getTitle().equals("§8§l✦ §6§lMAGIC FRUITS ADMIN §8§l✦") ||
-            event.getView().getTitle().equals("§8§l✦ §6§lFRUITS MENU §8§l✦") ||
-            event.getView().getTitle().equals("§8§l✦ §6§lPLAYER MENU §8§l✦") ||
-            event.getView().getTitle().equals("§8§l✦ §6§lSETTINGS §8§l✦")) {
+        String title = event.getView().getTitle();
+        
+        if (title.equals("§8§l✦ §6§lMAGIC FRUITS ADMIN §8§l✦") ||
+            title.equals("§8§l✦ §6§lFRUITS MENU §8§l✦") ||
+            title.equals("§8§l✦ §6§lPLAYER MENU §8§l✦") ||
+            title.equals("§8§l✦ §6§lSETTINGS §8§l✦") ||
+            title.equals("§8§l✦ §6§lDATA MANAGEMENT §8§l✦")) {
             
             event.setCancelled(true);
             ItemStack clicked = event.getCurrentItem();
             if (clicked == null || clicked.getType() == Material.AIR) return;
-            
-            String title = event.getView().getTitle();
             
             if (title.equals("§8§l✦ §6§lMAGIC FRUITS ADMIN §8§l✦")) {
                 handleMainDashboard(player, clicked);
@@ -337,6 +421,8 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
                 handlePlayerMenu(player, clicked);
             } else if (title.equals("§8§l✦ §6§lSETTINGS §8§l✦")) {
                 handleSettingsMenu(player, clicked);
+            } else if (title.equals("§8§l✦ §6§lDATA MANAGEMENT §8§l✦")) {
+                handleDataManagement(player, clicked);
             }
         }
     }
@@ -354,6 +440,9 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             case "SPIN CONTROL":
                 openSpinControl(player);
                 break;
+            case "DATA MANAGEMENT":
+                openDataManagement(player);
+                break;
             case "GLOBAL SETTINGS":
                 openSettingsMenu(player);
                 break;
@@ -366,6 +455,29 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
                 player.sendMessage("§aConfig reloaded successfully!");
                 player.closeInventory();
                 break;
+        }
+    }
+    
+    private void handleDataManagement(Player player, ItemStack clicked) {
+        String name = ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
+        
+        if (name.equals("BACK")) {
+            openAdminDashboard(player);
+            return;
+        }
+        
+        if (name.equals("RESET YOUR DATA")) {
+            resetPlayerData(player);
+            player.sendMessage("§cYour magical fruit data has been reset!");
+            player.closeInventory();
+        } else if (name.equals("RESET PLAYER DATA")) {
+            // This would open player selection - simplified for now
+            player.sendMessage("§ePlease use: /magicfruits reset <player>");
+            player.closeInventory();
+        } else if (name.equals("RESET ALL DATA")) {
+            resetAllPlayersData();
+            player.sendMessage("§cAll player data has been reset!");
+            player.closeInventory();
         }
     }
     
@@ -444,7 +556,6 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
                 openSettingsMenu(player);
                 break;
             case "COOLDOWN: 30s":
-                // Cycle through cooldown options
                 if (cooldownTime == 30) cooldownTime = 20;
                 else if (cooldownTime == 20) cooldownTime = 15;
                 else if (cooldownTime == 15) cooldownTime = 10;
@@ -504,41 +615,60 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
         }
         
         // Dashboard Items
-        gui.setItem(11, createMenuItem(Material.CHEST, "§6§l✦ FRUITS MANAGEMENT ✦",
+        gui.setItem(10, createMenuItem(Material.CHEST, "§6§l✦ FRUITS MANAGEMENT ✦",
             "§7Manage all magical fruits",
-            "§7Give fruits to players",
-            "§7View fruit statistics"));
-        
-        gui.setItem(13, createMenuItem(Material.PLAYER_HEAD, "§b§l✦ PLAYER MANAGEMENT ✦",
-            "§7Manage player spins",
-            "§7Spin for specific players",
             "§7Give fruits to players"));
         
-        gui.setItem(15, createMenuItem(Material.NETHER_STAR, "§5§l✦ SPIN CONTROL ✦",
-            "§7Control spin system",
-            "§7Start mass spins",
-            "§7Configure spin settings"));
+        gui.setItem(12, createMenuItem(Material.PLAYER_HEAD, "§b§l✦ PLAYER MANAGEMENT ✦",
+            "§7Manage player spins",
+            "§7Spin for specific players"));
         
-        gui.setItem(29, createMenuItem(Material.REDSTONE_COMPARATOR, "§e§l✦ GLOBAL SETTINGS ✦",
+        gui.setItem(14, createMenuItem(Material.NETHER_STAR, "§5§l✦ SPIN CONTROL ✦",
+            "§7Control spin system",
+            "§7Start mass spins"));
+        
+        gui.setItem(16, createMenuItem(Material.ANVIL, "§d§l✦ DATA MANAGEMENT ✦",
+            "§7Reset player data",
+            "§7Clear fruits and progress",
+            "§7§c⚠ WARNING: Cannot be undone!"));
+        
+        gui.setItem(29, createMenuItem(Material.COMPARATOR, "§e§l✦ GLOBAL SETTINGS ✦",
             "§7Configure plugin settings",
             "§7First join reward, death drops",
             "§7Cooldown, particles, sounds"));
         
         gui.setItem(31, createMenuItem(Material.PAPER, "§a§l✦ STATISTICS ✦",
             "§7View plugin statistics",
-            "§7Total fruits given",
-            "§7Active players"));
+            "§7Active players, settings"));
         
         gui.setItem(33, createMenuItem(Material.ENDER_CHEST, "§c§l✦ RELOAD CONFIG ✦",
             "§7Reload configuration",
             "§7Apply new settings"));
         
-        // Decorative items
-        ItemStack titleDeco = new ItemStack(Material.GOLD_BLOCK);
-        ItemMeta decoMeta = titleDeco.getItemMeta();
-        decoMeta.displayName(Component.text("§6§l╔══════════════════════════════╗"));
-        titleDeco.setItemMeta(decoMeta);
-        gui.setItem(4, titleDeco);
+        player.openInventory(gui);
+    }
+    
+    private void openDataManagement(Player player) {
+        Inventory gui = Bukkit.createInventory(null, 27, "§8§l✦ §6§lDATA MANAGEMENT §8§l✦");
+        
+        gui.setItem(11, createMenuItem(Material.REDSTONE, "§c§lRESET YOUR DATA",
+            "§7Reset your own magical fruit data",
+            "§7You will get a new spin on next join",
+            "§c§l⚠ WARNING: This cannot be undone!"));
+        
+        gui.setItem(13, createMenuItem(Material.PLAYER_HEAD, "§e§lRESET PLAYER DATA",
+            "§7Reset data for a specific player",
+            "§7They will get a new spin on next join",
+            "§c§l⚠ WARNING: This cannot be undone!"));
+        
+        gui.setItem(15, createMenuItem(Material.DRAGON_HEAD, "§4§lRESET ALL DATA",
+            "§7Reset data for ALL players",
+            "§7Everyone will get a new spin on next join",
+            "§c§l⚠ WARNING: This cannot be undone!"));
+        
+        ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
+            "§7Return to main dashboard");
+        gui.setItem(22, back);
         
         player.openInventory(gui);
     }
@@ -608,7 +738,6 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             "§7Return to fruits menu");
         gui.setItem(49, back);
         
-        // Handle click in this GUI
         player.openInventory(gui);
     }
     
@@ -743,7 +872,8 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             "§7Cooldown: §f" + cooldownTime + "s",
             "§7Spin Duration: §f" + spinDuration + "s",
             "§7Particles: " + (particlesEnabled ? "§aON" : "§cOFF"),
-            "§7Sounds: " + (soundsEnabled ? "§aON" : "§cOFF")));
+            "§7Sounds: " + (soundsEnabled ? "§aON" : "§cOFF"),
+            "§7Reset Players: §f" + resetPlayers.size()));
         
         stats.setItem(15, createMenuItem(Material.NETHER_STAR, "§6§lACTIVE SPINS",
             "§7" + spinActive.size() + " active spins"));
@@ -1071,7 +1201,31 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
         } else if (args[0].equalsIgnoreCase("reload")) {
             reloadConfig();
             loadSettings();
+            loadResetData();
             sender.sendMessage("§aMagicFruits configuration reloaded!");
+        } else if (args[0].equalsIgnoreCase("reset")) {
+            if (!sender.hasPermission("magicfruits.admin")) {
+                sender.sendMessage("§cYou don't have permission!");
+                return true;
+            }
+            
+            if (args.length == 1) {
+                sender.sendMessage("§cUsage: /magicfruits reset <player|all>");
+                return true;
+            }
+            
+            if (args[1].equalsIgnoreCase("all")) {
+                resetAllPlayersData();
+                sender.sendMessage("§aAll player data has been reset!");
+            } else {
+                Player target = Bukkit.getPlayer(args[1]);
+                if (target != null) {
+                    resetPlayerData(target);
+                    sender.sendMessage("§aReset data for §e" + target.getName());
+                } else {
+                    sender.sendMessage("§cPlayer not found!");
+                }
+            }
         }
         
         return true;
@@ -1080,12 +1234,17 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("spin", "give", "dashboard", "reload");
+            return Arrays.asList("spin", "give", "dashboard", "reload", "reset");
         } else if (args.length == 2 && args[0].equalsIgnoreCase("give")) {
             return null;
         } else if (args.length == 3 && args[0].equalsIgnoreCase("give")) {
             return Arrays.stream(FruitType.values()).map(Enum::name).map(String::toLowerCase).toList();
         } else if (args.length == 2 && args[0].equalsIgnoreCase("spin")) {
+            List<String> suggestions = new ArrayList<>();
+            suggestions.add("all");
+            suggestions.addAll(Bukkit.getOnlinePlayers().stream().map(Player::getName).toList());
+            return suggestions;
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("reset")) {
             List<String> suggestions = new ArrayList<>();
             suggestions.add("all");
             suggestions.addAll(Bukkit.getOnlinePlayers().stream().map(Player::getName).toList());
