@@ -8,7 +8,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -27,7 +26,7 @@ public final class MagicFruits extends JavaPlugin implements Listener {
     private CommandHandler commandHandler;
     private Map<UUID, Ability> stolenAbilities = new HashMap<>();
     private Map<UUID, Long> stolenAbilityExpiry = new HashMap<>();
-    private Map<UUID, Long> lastConsumeTime = new HashMap<>();
+    private Map<UUID, Long> lastInteractTime = new HashMap<>();
     
     @Override
     public void onEnable() {
@@ -111,21 +110,21 @@ public final class MagicFruits extends JavaPlugin implements Listener {
     }
     
     @EventHandler
-    public void onPlayerItemConsume(PlayerItemConsumeEvent event) {
+    public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
-        ItemStack item = event.getItem();
+        ItemStack item = player.getInventory().getItemInMainHand();
         FruitType fruit = FruitType.fromItem(item);
         
         if (fruit != null) {
             event.setCancelled(true);
             
-            // Prevent spam consumption
+            // Prevent spam (500ms cooldown between uses)
             long currentTime = System.currentTimeMillis();
-            long lastConsume = lastConsumeTime.getOrDefault(player.getUniqueId(), 0L);
-            if (currentTime - lastConsume < 500) {
-                return; // Prevent spam (500ms cooldown between consumptions)
+            long lastInteract = lastInteractTime.getOrDefault(player.getUniqueId(), 0L);
+            if (currentTime - lastInteract < 500) {
+                return; // Prevent spam
             }
-            lastConsumeTime.put(player.getUniqueId(), currentTime);
+            lastInteractTime.put(player.getUniqueId(), currentTime);
             
             // Check stolen ability
             if (stolenAbilities.containsKey(player.getUniqueId())) {
