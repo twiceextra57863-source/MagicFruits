@@ -44,6 +44,50 @@ public enum FruitType {
     THUNDER_FRUIT("§3§l⚡ §b§lTHUNDER FRUIT §3§l⚡",
                  "§7§oCommand the storm itself",
                  Material.NETHER_STAR,
+package com.example.magicfruits;
+
+import com.example.magicfruits.abilities.*;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public enum FruitType {
+    BUDDHA_FRUIT("§e§l✨ §6§lBUDDHA FRUIT §e§l✨", 
+                "§7§oEnlightened by ancient wisdom",
+                Material.NETHER_STAR,
+                1001,
+                new BuddhaAbility()),
+    
+    CRYSTAL_FRUIT("§b§l💎 §3§lCRYSTAL FRUIT §b§l💎",
+                 "§7§oPure crystalline power",
+                 Material.NETHER_STAR,
+                 1002,
+                 new CrystalAbility()),
+    
+    DRAGON_FRUIT("§c§l🐉 §4§lDRAGON FRUIT §c§l🐉",
+                "§7§oWrath of the ancient dragons",
+                Material.NETHER_STAR,
+                1003,
+                new DragonAbility()),
+    
+    PHOENIX_FRUIT("§6§l🔥 §e§lPHOENIX FRUIT §6§l🔥",
+                 "§7§oReborn from eternal flames",
+                 Material.NETHER_STAR,
+                 1004,
+                 new PhoenixAbility()),
+    
+    VOID_FRUIT("§5§l🌑 §8§lVOID FRUIT §5§l🌑",
+              "§7§oEmbrace the darkness within",
+              Material.NETHER_STAR,
+              1005,
+              new VoidAbility()),
+    
+    THUNDER_FRUIT("§3§l⚡ §b§lTHUNDER FRUIT §3§l⚡",
+                 "§7§oCommand the storm itself",
+                 Material.NETHER_STAR,
                  1006,
                  new ThunderAbility()),
     
@@ -71,11 +115,11 @@ public enum FruitType {
                1010,
                new ThiefAbility()),
     
-    BLOOD_FRUIT("§4§l🩸 §c§lBLOOD FRUIT §4§l🩸",
-               "§7§oSacrifice for ultimate power",
-               Material.NETHER_STAR,
-               1011,
-               new BloodAbility());
+    PORTAL_FRUIT("§5§l🌀 §d§lPORTAL FRUIT §5§l🌀",
+                "§7§oMaster of dimensions",
+                Material.NETHER_STAR,
+                1011,
+                new PortalAbility());
     
     private final String displayName;
     private final String description;
@@ -118,6 +162,15 @@ public enum FruitType {
         lore.add("§8§m----------------------------------------");
         
         meta.setLore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+    
+    public ItemStack createDisplayItem() {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(displayName);
+        meta.setCustomModelData(customModelData);
         item.setItemMeta(meta);
         return item;
     }
