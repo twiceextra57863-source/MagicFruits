@@ -12,11 +12,13 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -35,6 +37,7 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     private Map<UUID, Long> abilityCooldown = new ConcurrentHashMap<>();
     private Map<UUID, Integer> cooldownTasks = new ConcurrentHashMap<>();
     private Map<UUID, FruitType> lastUsedFruit = new ConcurrentHashMap<>();
+    private Map<UUID, Integer> adminPage = new ConcurrentHashMap<>();
     
     private enum FruitType {
         BUDDHA_FRUIT("§e§l✨ §6§lBUDDHA FRUIT §e§l✨", 
@@ -42,70 +45,80 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
                     PotionEffectType.STRENGTH,
                     PotionEffectType.RESISTANCE,
                     Color.fromRGB(0xFFD700),
-                    "YELLOW"),
+                    "YELLOW",
+                    Material.GOLDEN_APPLE),
         
         CRYSTAL_FRUIT("§b§l💎 §3§lCRYSTAL FRUIT §b§l💎",
                      "§7§oPure crystalline power",
                      PotionEffectType.SPEED,
                      PotionEffectType.JUMP_BOOST,
                      Color.fromRGB(0x00FFFF),
-                     "LIGHT_BLUE"),
+                     "LIGHT_BLUE",
+                     Material.DIAMOND),
         
         DRAGON_FRUIT("§c§l🐉 §4§lDRAGON FRUIT §c§l🐉",
                     "§7§oWrath of the ancient dragons",
                     PotionEffectType.FIRE_RESISTANCE,
                     PotionEffectType.STRENGTH,
                     Color.fromRGB(0xFF4444),
-                    "RED"),
+                    "RED",
+                    Material.DRAGON_BREATH),
         
         PHOENIX_FRUIT("§6§l🔥 §e§lPHOENIX FRUIT §6§l🔥",
                      "§7§oReborn from eternal flames",
                      PotionEffectType.REGENERATION,
                      PotionEffectType.ABSORPTION,
                      Color.fromRGB(0xFFA500),
-                     "ORANGE"),
+                     "ORANGE",
+                     Material.BLAZE_POWDER),
         
         VOID_FRUIT("§5§l🌑 §8§lVOID FRUIT §5§l🌑",
                   "§7§oEmbrace the darkness within",
                   PotionEffectType.INVISIBILITY,
                   PotionEffectType.NIGHT_VISION,
                   Color.fromRGB(0xAA00AA),
-                  "PURPLE"),
+                  "PURPLE",
+                  Material.ENDER_PEARL),
         
         THUNDER_FRUIT("§3§l⚡ §b§lTHUNDER FRUIT §3§l⚡",
                      "§7§oCommand the storm itself",
                      PotionEffectType.CONDUIT_POWER,
                      PotionEffectType.DOLPHINS_GRACE,
                      Color.fromRGB(0x44AAFF),
-                     "LIGHT_BLUE"),
+                     "LIGHT_BLUE",
+                     Material.NETHER_STAR),
         
         NATURE_FRUIT("§2§l🌿 §a§lNATURE FRUIT §2§l🌿",
                     "§7§oOne with the natural world",
                     PotionEffectType.SATURATION,
                     PotionEffectType.LUCK,
                     Color.fromRGB(0x44FF44),
-                    "GREEN"),
+                    "GREEN",
+                    Material.OAK_SAPLING),
         
         ICE_FRUIT("§b§l❄️ §f§lICE FRUIT §b§l❄️",
                  "§7§oFreeze your enemies solid",
                  PotionEffectType.SLOWNESS,
                  PotionEffectType.WATER_BREATHING,
                  Color.fromRGB(0x88FFFF),
-                 "LIGHT_BLUE"),
+                 "LIGHT_BLUE",
+                 Material.PACKED_ICE),
         
         STAR_FRUIT("§d§l⭐ §5§lSTAR FRUIT §d§l⭐",
                   "§7§oHarness cosmic energy",
                   PotionEffectType.GLOWING,
                   PotionEffectType.LEVITATION,
                   Color.fromRGB(0xFF88FF),
-                  "MAGENTA"),
+                  "MAGENTA",
+                  Material.NETHER_STAR),
         
         BLOOD_FRUIT("§4§l🩸 §c§lBLOOD FRUIT §4§l🩸",
                    "§7§oSacrifice for ultimate power",
                    PotionEffectType.WITHER,
                    PotionEffectType.INSTANT_HEALTH,
                    Color.fromRGB(0xFF4444),
-                   "RED");
+                   "RED",
+                   Material.REDSTONE);
         
         private final String displayName;
         private final String description;
@@ -113,14 +126,16 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
         private final PotionEffectType secondaryEffect;
         private final Color dyeColor;
         private final String dyeMaterial;
+        private final Material icon;
         
-        FruitType(String displayName, String description, PotionEffectType primary, PotionEffectType secondary, Color dyeColor, String dyeMaterial) {
+        FruitType(String displayName, String description, PotionEffectType primary, PotionEffectType secondary, Color dyeColor, String dyeMaterial, Material icon) {
             this.displayName = displayName;
             this.description = description;
             this.primaryEffect = primary;
             this.secondaryEffect = secondary;
             this.dyeColor = dyeColor;
             this.dyeMaterial = dyeMaterial;
+            this.icon = icon;
         }
         
         public ItemStack createItem() {
@@ -150,6 +165,19 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             lore.add(Component.text("§8§m----------------------------------------"));
             
             meta.lore(lore);
+            item.setItemMeta(meta);
+            return item;
+        }
+        
+        public ItemStack getIcon() {
+            ItemStack item = new ItemStack(icon);
+            ItemMeta meta = item.getItemMeta();
+            meta.displayName(Component.text(displayName));
+            meta.lore(Arrays.asList(
+                Component.text("§7" + description),
+                Component.empty(),
+                Component.text("§eClick to give this fruit!")
+            ));
             item.setItemMeta(meta);
             return item;
         }
@@ -209,6 +237,391 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     }
     
     @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (event.getView().getTitle().equals("§8§l✦ §6§lMAGIC FRUITS ADMIN §8§l✦") ||
+            event.getView().getTitle().equals("§8§l✦ §6§lFRUITS MENU §8§l✦") ||
+            event.getView().getTitle().equals("§8§l✦ §6§lPLAYER MENU §8§l✦") ||
+            event.getView().getTitle().equals("§8§l✦ §6§lSETTINGS §8§l✦")) {
+            
+            event.setCancelled(true);
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked == null || clicked.getType() == Material.AIR) return;
+            
+            String title = event.getView().getTitle();
+            
+            if (title.equals("§8§l✦ §6§lMAGIC FRUITS ADMIN §8§l✦")) {
+                handleMainDashboard(player, clicked);
+            } else if (title.equals("§8§l✦ §6§lFRUITS MENU §8§l✦")) {
+                handleFruitsMenu(player, clicked);
+            } else if (title.equals("§8§l✦ §6§lPLAYER MENU §8§l✦")) {
+                handlePlayerMenu(player, clicked);
+            } else if (title.equals("§8§l✦ §6§lSETTINGS §8§l✦")) {
+                handleSettingsMenu(player, clicked);
+            }
+        }
+    }
+    
+    private void handleMainDashboard(Player player, ItemStack clicked) {
+        String name = ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
+        
+        switch (name) {
+            case "FRUITS MANAGEMENT":
+                openFruitsMenu(player);
+                break;
+            case "PLAYER MANAGEMENT":
+                openPlayerMenu(player);
+                break;
+            case "SPIN CONTROL":
+                openSpinControl(player);
+                break;
+            case "GLOBAL SETTINGS":
+                openSettingsMenu(player);
+                break;
+            case "STATISTICS":
+                showStatistics(player);
+                break;
+            case "RELOAD CONFIG":
+                reloadConfig();
+                player.sendMessage("§aConfig reloaded successfully!");
+                player.closeInventory();
+                break;
+        }
+    }
+    
+    private void handleFruitsMenu(Player player, ItemStack clicked) {
+        String name = ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
+        
+        if (name.equals("BACK")) {
+            openAdminDashboard(player);
+            return;
+        }
+        
+        // Check if clicked is a fruit
+        for (FruitType fruit : FruitType.values()) {
+            if (fruit.getDisplayName().equals(name)) {
+                // Open give menu for this fruit
+                openGiveFruitMenu(player, fruit);
+                return;
+            }
+        }
+    }
+    
+    private void handlePlayerMenu(Player player, ItemStack clicked) {
+        String name = ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
+        
+        if (name.equals("BACK")) {
+            openAdminDashboard(player);
+            return;
+        }
+        
+        if (name.equals("SPIN ALL PLAYERS")) {
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                startFruitSpin(online);
+            }
+            player.sendMessage("§aStarted spin for all online players!");
+            player.closeInventory();
+        } else if (name.startsWith("SPIN: ")) {
+            String targetName = name.substring(6);
+            Player target = Bukkit.getPlayer(targetName);
+            if (target != null) {
+                startFruitSpin(target);
+                player.sendMessage("§aStarted spin for §e" + targetName);
+                player.closeInventory();
+            }
+        } else if (name.startsWith("GIVE: ")) {
+            String targetName = name.substring(6);
+            Player target = Bukkit.getPlayer(targetName);
+            if (target != null && player.hasMetadata("selectedFruit")) {
+                FruitType fruit = (FruitType) player.getMetadata("selectedFruit").get(0).value();
+                target.getInventory().addItem(fruit.createItem());
+                player.sendMessage("§aGave §e" + fruit.getDisplayName() + " §ato §e" + targetName);
+                player.closeInventory();
+            }
+        }
+    }
+    
+    private void handleSettingsMenu(Player player, ItemStack clicked) {
+        String name = ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
+        
+        if (name.equals("BACK")) {
+            openAdminDashboard(player);
+            return;
+        }
+        
+        switch (name) {
+            case "COOLDOWN: 30s":
+                // Toggle cooldown or change
+                player.sendMessage("§eCooldown settings coming soon!");
+                break;
+            case "SPIN DURATION: 15s":
+                player.sendMessage("§eSpin duration settings coming soon!");
+                break;
+            case "PARTICLES: ENABLED":
+                player.sendMessage("§eParticle settings coming soon!");
+                break;
+            case "SOUNDS: ENABLED":
+                player.sendMessage("§eSound settings coming soon!");
+                break;
+        }
+    }
+    
+    private void openAdminDashboard(Player player) {
+        Inventory gui = Bukkit.createInventory(null, 54, "§8§l✦ §6§lMAGIC FRUITS ADMIN §8§l✦");
+        
+        // Border
+        ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+        ItemMeta borderMeta = border.getItemMeta();
+        borderMeta.displayName(Component.text(" "));
+        border.setItemMeta(borderMeta);
+        
+        for (int i = 0; i < 54; i++) {
+            if (i < 9 || i >= 45 || i % 9 == 0 || i % 9 == 8) {
+                gui.setItem(i, border);
+            }
+        }
+        
+        // Dashboard Items
+        gui.setItem(11, createMenuItem(Material.CHEST, "§6§l✦ FRUITS MANAGEMENT ✦",
+            "§7Manage all magical fruits",
+            "§7Give fruits to players",
+            "§7View fruit statistics"));
+        
+        gui.setItem(13, createMenuItem(Material.PLAYER_HEAD, "§b§l✦ PLAYER MANAGEMENT ✦",
+            "§7Manage player spins",
+            "§7Spin for specific players",
+            "§7Give fruits to players"));
+        
+        gui.setItem(15, createMenuItem(Material.NETHER_STAR, "§5§l✦ SPIN CONTROL ✦",
+            "§7Control spin system",
+            "§7Start mass spins",
+            "§7Configure spin settings"));
+        
+        gui.setItem(29, createMenuItem(Material.REDSTONE_COMPARATOR, "§e§l✦ GLOBAL SETTINGS ✦",
+            "§7Configure plugin settings",
+            "§7Cooldown, particles, sounds"));
+        
+        gui.setItem(31, createMenuItem(Material.PAPER, "§a§l✦ STATISTICS ✦",
+            "§7View plugin statistics",
+            "§7Total fruits given",
+            "§7Active players"));
+        
+        gui.setItem(33, createMenuItem(Material.ENDER_CHEST, "§c§l✦ RELOAD CONFIG ✦",
+            "§7Reload configuration",
+            "§7Apply new settings"));
+        
+        // Decorative items
+        ItemStack titleDeco = new ItemStack(Material.GOLD_BLOCK);
+        ItemMeta decoMeta = titleDeco.getItemMeta();
+        decoMeta.displayName(Component.text("§6§l╔══════════════════════════════╗"));
+        titleDeco.setItemMeta(decoMeta);
+        gui.setItem(4, titleDeco);
+        
+        player.openInventory(gui);
+    }
+    
+    private void openFruitsMenu(Player player) {
+        Inventory gui = Bukkit.createInventory(null, 54, "§8§l✦ §6§lFRUITS MENU §8§l✦");
+        
+        // Border
+        ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+        ItemMeta borderMeta = border.getItemMeta();
+        borderMeta.displayName(Component.text(" "));
+        border.setItemMeta(borderMeta);
+        
+        for (int i = 0; i < 54; i++) {
+            if (i < 9 || i >= 45 || i % 9 == 0 || i % 9 == 8) {
+                gui.setItem(i, border);
+            }
+        }
+        
+        // Add all fruits
+        int slot = 10;
+        for (FruitType fruit : FruitType.values()) {
+            gui.setItem(slot, fruit.getIcon());
+            slot++;
+            if ((slot + 1) % 9 == 0) slot += 2;
+        }
+        
+        // Back button
+        ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
+            "§7Return to main dashboard");
+        gui.setItem(49, back);
+        
+        player.openInventory(gui);
+    }
+    
+    private void openGiveFruitMenu(Player player, FruitType fruit) {
+        Inventory gui = Bukkit.createInventory(null, 54, "§8§l✦ §6§lGIVE FRUIT §8§l✦");
+        
+        // Border
+        ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+        ItemMeta borderMeta = border.getItemMeta();
+        borderMeta.displayName(Component.text(" "));
+        border.setItemMeta(borderMeta);
+        
+        for (int i = 0; i < 54; i++) {
+            if (i < 9 || i >= 45 || i % 9 == 0 || i % 9 == 8) {
+                gui.setItem(i, border);
+            }
+        }
+        
+        // Fruit info
+        gui.setItem(22, fruit.getIcon());
+        
+        // Player heads
+        int slot = 28;
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+            SkullMeta meta = (SkullMeta) head.getItemMeta();
+            meta.setOwningPlayer(online);
+            meta.displayName(Component.text("§a§l" + online.getName()));
+            meta.lore(Arrays.asList(
+                Component.text("§7Click to give §e" + fruit.getDisplayName()),
+                Component.text("§7to this player!")
+            ));
+            head.setItemMeta(meta);
+            gui.setItem(slot, head);
+            slot++;
+            if ((slot + 1) % 9 == 0) slot += 2;
+            if (slot > 43) break;
+        }
+        
+        // Back button
+        ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
+            "§7Return to fruits menu");
+        gui.setItem(49, back);
+        
+        player.openInventory(gui);
+    }
+    
+    private void openPlayerMenu(Player player) {
+        Inventory gui = Bukkit.createInventory(null, 54, "§8§l✦ §6§lPLAYER MENU §8§l✦");
+        
+        // Border
+        ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+        ItemMeta borderMeta = border.getItemMeta();
+        borderMeta.displayName(Component.text(" "));
+        border.setItemMeta(borderMeta);
+        
+        for (int i = 0; i < 54; i++) {
+            if (i < 9 || i >= 45 || i % 9 == 0 || i % 9 == 8) {
+                gui.setItem(i, border);
+            }
+        }
+        
+        // Spin all button
+        ItemStack spinAll = createMenuItem(Material.NETHER_STAR, "§c§l✦ SPIN ALL PLAYERS ✦",
+            "§7Start fruit spin for all",
+            "§7online players!");
+        gui.setItem(22, spinAll);
+        
+        // Player list
+        int slot = 28;
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+            SkullMeta meta = (SkullMeta) head.getItemMeta();
+            meta.setOwningPlayer(online);
+            meta.displayName(Component.text("§b§l" + online.getName()));
+            meta.lore(Arrays.asList(
+                Component.text("§7• §eLeft Click: §fStart spin"),
+                Component.text("§7• §eRight Click: §fGive fruit menu")
+            ));
+            head.setItemMeta(meta);
+            gui.setItem(slot, head);
+            slot++;
+            if ((slot + 1) % 9 == 0) slot += 2;
+            if (slot > 43) break;
+        }
+        
+        // Back button
+        ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
+            "§7Return to main dashboard");
+        gui.setItem(49, back);
+        
+        player.openInventory(gui);
+    }
+    
+    private void openSpinControl(Player player) {
+        Inventory gui = Bukkit.createInventory(null, 27, "§8§l✦ §6§lSPIN CONTROL §8§l✦");
+        
+        gui.setItem(11, createMenuItem(Material.NETHER_STAR, "§6§l✦ SPIN YOURSELF ✦",
+            "§7Start a fruit spin for yourself"));
+        
+        gui.setItem(13, createMenuItem(Material.PLAYER_HEAD, "§b§l✦ SPIN SPECIFIC ✦",
+            "§7Start spin for a specific player"));
+        
+        gui.setItem(15, createMenuItem(Material.DRAGON_HEAD, "§c§l✦ SPIN ALL ✦",
+            "§7Start spin for all online players"));
+        
+        // Back button
+        ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
+            "§7Return to main dashboard");
+        gui.setItem(22, back);
+        
+        player.openInventory(gui);
+    }
+    
+    private void openSettingsMenu(Player player) {
+        Inventory gui = Bukkit.createInventory(null, 27, "§8§l✦ §6§lSETTINGS §8§l✦");
+        
+        gui.setItem(10, createMenuItem(Material.CLOCK, "§e§lCOOLDOWN: 30s",
+            "§7Click to change cooldown time"));
+        
+        gui.setItem(12, createMenuItem(Material.SUGAR, "§b§lSPIN DURATION: 15s",
+            "§7Click to change spin duration"));
+        
+        gui.setItem(14, createMenuItem(Material.FIREWORK_STAR, "§d§lPARTICLES: ENABLED",
+            "§7Click to toggle particles"));
+        
+        gui.setItem(16, createMenuItem(Material.NOTE_BLOCK, "§a§lSOUNDS: ENABLED",
+            "§7Click to toggle sounds"));
+        
+        // Back button
+        ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
+            "§7Return to main dashboard");
+        gui.setItem(22, back);
+        
+        player.openInventory(gui);
+    }
+    
+    private void showStatistics(Player player) {
+        int totalPlayers = Bukkit.getOnlinePlayers().size();
+        int totalFruitsGiven = 0; // You can track this in config
+        
+        Inventory stats = Bukkit.createInventory(null, 27, "§8§l✦ §6§lSTATISTICS §8§l✦");
+        
+        stats.setItem(11, createMenuItem(Material.PLAYER_HEAD, "§a§lONLINE PLAYERS",
+            "§7" + totalPlayers + " players online"));
+        
+        stats.setItem(13, createMenuItem(Material.CHEST, "§b§lFRUITS GIVEN",
+            "§7" + totalFruitsGiven + " fruits total"));
+        
+        stats.setItem(15, createMenuItem(Material.NETHER_STAR, "§6§lACTIVE SPINS",
+            "§7" + spinActive.size() + " active spins"));
+        
+        // Back button
+        ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
+            "§7Return to main dashboard");
+        stats.setItem(22, back);
+        
+        player.openInventory(stats);
+    }
+    
+    private ItemStack createMenuItem(Material material, String name, String... lore) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(name));
+        List<Component> loreList = new ArrayList<>();
+        for (String line : lore) {
+            loreList.add(Component.text(line));
+        }
+        meta.lore(loreList);
+        item.setItemMeta(meta);
+        return item;
+    }
+    
+    @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         if (!player.hasPlayedBefore()) {
@@ -259,7 +672,6 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     }
     
     private void startCooldownDisplay(Player player, FruitType fruit) {
-        // Cancel existing cooldown task
         if (cooldownTasks.containsKey(player.getUniqueId())) {
             Bukkit.getScheduler().cancelTask(cooldownTasks.get(player.getUniqueId()));
         }
@@ -270,7 +682,6 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             @Override
             public void run() {
                 if (secondsLeft <= 0) {
-                    // Cooldown finished - show ready status
                     player.setExp(0);
                     player.setLevel(0);
                     player.sendActionBar(Component.text("§a§l✓ §f" + fruit.getDisplayName() + " §a§lREADY!"));
@@ -286,17 +697,12 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     }
     
     private void showCooldownOnXPBar(Player player, int secondsLeft, FruitType fruit) {
-        // Set XP bar progress (0.0 to 1.0)
         float progress = (float) secondsLeft / 30.0f;
         player.setExp(progress);
-        
-        // Set level to show seconds remaining
         player.setLevel(secondsLeft);
         
-        // Show action bar with cooldown info
         String message = "§c§l⏳ §f" + fruit.getDisplayName() + " §c§lCOOLDOWN: §e" + secondsLeft + "s";
         
-        // Add visual indicator based on time remaining
         if (secondsLeft <= 5) {
             message = "§c§l⚠ §f" + fruit.getDisplayName() + " §c§lREADY IN: §e" + secondsLeft + "s §c§l⚠";
         } else if (secondsLeft <= 10) {
@@ -461,7 +867,7 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
             if (sender instanceof Player) {
-                openAdminGUI((Player) sender);
+                openAdminDashboard((Player) sender);
             } else {
                 sender.sendMessage("§cThis command can only be used by players!");
             }
@@ -508,62 +914,21 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             } catch (IllegalArgumentException e) {
                 sender.sendMessage("§cInvalid fruit! Available: " + Arrays.toString(FruitType.values()));
             }
+        } else if (args[0].equalsIgnoreCase("dashboard") || args[0].equalsIgnoreCase("admin")) {
+            if (sender instanceof Player) {
+                openAdminDashboard((Player) sender);
+            } else {
+                sender.sendMessage("§cThis command can only be used by players!");
+            }
         }
         
         return true;
     }
     
-    private void openAdminGUI(Player player) {
-        Inventory gui = Bukkit.createInventory(null, 54, "§8§l✦ §6§lMAGIC FRUITS ADMIN §8§l✦");
-        
-        ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
-        ItemMeta borderMeta = border.getItemMeta();
-        borderMeta.displayName(Component.text(" "));
-        border.setItemMeta(borderMeta);
-        
-        for (int i = 0; i < 54; i++) {
-            if (i < 9 || i >= 45 || i % 9 == 0 || i % 9 == 8) {
-                gui.setItem(i, border);
-            }
-        }
-        
-        ItemStack spinSelf = new ItemStack(Material.NETHER_STAR);
-        ItemMeta spinSelfMeta = spinSelf.getItemMeta();
-        spinSelfMeta.displayName(Component.text("§6§l✦ SPIN FOR YOURSELF ✦"));
-        spinSelfMeta.lore(Arrays.asList(
-            Component.text("§7Click to start a fruit spin!"),
-            Component.text("§8You will receive a random magical fruit")
-        ));
-        spinSelf.setItemMeta(spinSelfMeta);
-        gui.setItem(22, spinSelf);
-        
-        ItemStack spinPlayer = new ItemStack(Material.PLAYER_HEAD);
-        ItemMeta spinPlayerMeta = spinPlayer.getItemMeta();
-        spinPlayerMeta.displayName(Component.text("§b§l✦ SPIN FOR PLAYER ✦"));
-        spinPlayerMeta.lore(Arrays.asList(
-            Component.text("§7Click to select a player"),
-            Component.text("§8They will receive a random fruit!")
-        ));
-        spinPlayer.setItemMeta(spinPlayerMeta);
-        gui.setItem(31, spinPlayer);
-        
-        ItemStack spinAll = new ItemStack(Material.DRAGON_HEAD);
-        ItemMeta spinAllMeta = spinAll.getItemMeta();
-        spinAllMeta.displayName(Component.text("§c§l✦ SPIN FOR ALL ✦"));
-        spinAllMeta.lore(Arrays.asList(
-            Component.text("§7Start a spin for all"),
-            Component.text("§8online players!")
-        ));
-        spinAll.setItemMeta(spinAllMeta);
-        gui.setItem(40, spinAll);
-        
-        player.openInventory(gui);
-    }
-    
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("spin", "give");
+            return Arrays.asList("spin", "give", "dashboard");
         } else if (args.length == 2 && args[0].equalsIgnoreCase("give")) {
             return null;
         } else if (args.length == 3 && args[0].equalsIgnoreCase("give")) {
