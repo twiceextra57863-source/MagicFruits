@@ -7,7 +7,6 @@ import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.components.ConsumableComponent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -126,12 +125,6 @@ public enum FruitType {
         
         meta.displayName(Component.text(displayName).decoration(TextDecoration.ITALIC, false));
         meta.setCustomModelData(customModelData);
-        
-        // Make item consumable for right-click detection
-        ConsumableComponent consumable = meta.getConsumable();
-        consumable.setConsumeSeconds(0.1); // Very fast consumption (0.1 seconds)
-        consumable.setConsumeParticles(false); // Disable particles to avoid spam
-        meta.setConsumable(consumable);
         
         List<Component> lore = new ArrayList<>();
         lore.add(Component.empty());
