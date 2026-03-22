@@ -12,22 +12,6 @@ import org.bukkit.scheduler.BukkitRunnable;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-package com.example.magicfruits.managers;
-
-import com.example.magicfruits.FruitType;
-import com.example.magicfruits.MagicFruits;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.title.Title;
-import org.bukkit.Bukkit;
-import org.bukkit.Particle;
-import org.bukkit.Sound;
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitRunnable;
-
-import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class SpinManager {
     
@@ -69,7 +53,6 @@ public class SpinManager {
         int durationTicks = plugin.getDataManager().getSpinDuration() * 20;
         List<FruitType> fruits = Arrays.asList(FruitType.values());
         
-        // Show the spin GUI using action bar and inventory preview
         new BukkitRunnable() {
             int ticks = 0;
             int currentIndex = 0;
@@ -124,13 +107,12 @@ public class SpinManager {
                         }
                     }
                     
-                    // Show fruit name and item in action bar with custom model
+                    // Show fruit name in action bar
                     String displayName = current.getDisplayName();
                     player.sendActionBar(Component.text("§6§l⟳ §eSpinning: §f" + displayName + " §6§l⟳"));
                     
-                    // Preview item in inventory temporarily (optional)
-                    ItemStack previewItem = current.createDisplayItem();
-                    player.getInventory().setItem(8, previewItem);
+                    // Preview item in inventory slot 8
+                    player.getInventory().setItem(8, current.createDisplayItem());
                 }
                 
                 ticks++;
