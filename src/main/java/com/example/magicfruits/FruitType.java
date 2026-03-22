@@ -7,6 +7,7 @@ import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.components.ConsumableComponent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -126,6 +127,12 @@ public enum FruitType {
         meta.displayName(Component.text(displayName).decoration(TextDecoration.ITALIC, false));
         meta.setCustomModelData(customModelData);
         
+        // Make item consumable for right-click detection
+        ConsumableComponent consumable = meta.getConsumable();
+        consumable.setConsumeSeconds(0.1); // Very fast consumption (0.1 seconds)
+        consumable.setConsumeParticles(false); // Disable particles to avoid spam
+        meta.setConsumable(consumable);
+        
         List<Component> lore = new ArrayList<>();
         lore.add(Component.empty());
         lore.add(Component.text("§8§m----------------------------------------"));
@@ -151,6 +158,15 @@ public enum FruitType {
         return item;
     }
     
+    public ItemStack createDisplayItem() {
+        ItemStack item = new ItemStack(icon);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(displayName));
+        meta.setCustomModelData(customModelData);
+        item.setItemMeta(meta);
+        return item;
+    }
+    
     public boolean isFruitItem(ItemStack item) {
         if (item == null || item.getType() == Material.AIR) return false;
         if (item.getItemMeta() == null || item.getItemMeta().displayName() == null) return false;
@@ -162,11 +178,11 @@ public enum FruitType {
         ItemMeta meta = item.getItemMeta();
         meta.displayName(Component.text(displayName));
         meta.setCustomModelData(customModelData);
-        meta.lore(List.of(
-            Component.text("§7" + description),
-            Component.empty(),
-            Component.text("§eClick to give this fruit!")
-        ));
+        List<Component> lore = new ArrayList<>();
+        lore.add(Component.text("§7" + description));
+        lore.add(Component.empty());
+        lore.add(Component.text("§eClick to give this fruit!"));
+        meta.lore(lore);
         item.setItemMeta(meta);
         return item;
     }
@@ -182,4 +198,5 @@ public enum FruitType {
     public String getDisplayName() { return displayName; }
     public Ability getAbility() { return ability; }
     public int getCustomModelData() { return customModelData; }
+    public Material getIconMaterial() { return icon; }
 }
