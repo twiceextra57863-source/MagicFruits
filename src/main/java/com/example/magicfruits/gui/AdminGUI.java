@@ -219,3 +219,104 @@ public class AdminGUI implements Listener {
         } else if (title.equals("§8§l✦ §6§lSTATISTICS §8§l✦")) {
             event.setCancelled(true);
             ItemStack clicked = event.getCurrentItem();
+            if (clicked == null || clicked.getType() == Material.AIR) return;
+            
+            String name = net.md_5.bungee.api.ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
+            if (name.equals("BACK")) {
+                openMainDashboard(player);
+            }
+        }
+    }
+    
+    private void handleMainDashboardClick(Player player, String name) {
+        switch (name) {
+            case "FRUITS MANAGEMENT":
+                new FruitMenuGUI(plugin).openFruitsMenu(player);
+                break;
+            case "PLAYER MANAGEMENT":
+                new FruitMenuGUI(plugin).openPlayerMenu(player);
+                break;
+            case "SPIN CONTROL":
+                new FruitMenuGUI(plugin).openSpinControl(player);
+                break;
+            case "DATA MANAGEMENT":
+                openDataManagement(player);
+                break;
+            case "GLOBAL SETTINGS":
+                openSettingsMenu(player);
+                break;
+            case "STATISTICS":
+                openStatistics(player);
+                break;
+            case "RELOAD CONFIG":
+                plugin.reloadConfig();
+                plugin.getDataManager().loadSettings();
+                player.sendMessage("§aConfig reloaded successfully!");
+                player.closeInventory();
+                break;
+        }
+    }
+    
+    private void handleDataManagementClick(Player player, String name) {
+        switch (name) {
+            case "RESET YOUR DATA":
+                plugin.getDataManager().resetPlayerData(player);
+                player.sendMessage("§cYour magical fruit data has been reset!");
+                player.closeInventory();
+                break;
+            case "RESET PLAYER DATA":
+                player.sendMessage("§ePlease use: /magicfruits reset <player>");
+                player.closeInventory();
+                break;
+            case "RESET ALL DATA":
+                plugin.getDataManager().resetAllPlayersData();
+                player.sendMessage("§cAll player data has been reset!");
+                player.closeInventory();
+                break;
+            case "BACK":
+                openMainDashboard(player);
+                break;
+        }
+    }
+    
+    private void handleSettingsClick(Player player, String name) {
+        if (name.equals("BACK")) {
+            openMainDashboard(player);
+            return;
+        }
+        
+        if (name.contains("FIRST JOIN REWARD")) {
+            plugin.getDataManager().setFirstJoinReward(!plugin.getDataManager().isFirstJoinReward());
+            player.sendMessage(plugin.getDataManager().isFirstJoinReward() ? 
+                "§aFirst join reward has been §lENABLED" : "§cFirst join reward has been §lDISABLED");
+            openSettingsMenu(player);
+        } else if (name.contains("DROP ON DEATH")) {
+            plugin.getDataManager().setDropOnDeath(!plugin.getDataManager().isDropOnDeath());
+            player.sendMessage(plugin.getDataManager().isDropOnDeath() ? 
+                "§aFruits will §lDROP §aon death" : "§cFruits will §lNOT §cdrop on death anymore");
+            openSettingsMenu(player);
+        } else if (name.contains("COOLDOWN")) {
+            int current = plugin.getDataManager().getCooldownTime();
+            int newCooldown = current == 30 ? 20 : current == 20 ? 15 : current == 15 ? 10 : 30;
+            plugin.getDataManager().setCooldownTime(newCooldown);
+            player.sendMessage("§eCooldown set to: §f" + newCooldown + " seconds");
+            openSettingsMenu(player);
+        } else if (name.contains("SPIN DURATION")) {
+            int current = plugin.getDataManager().getSpinDuration();
+            int newDuration = current == 15 ? 10 : current == 10 ? 20 : 15;
+            plugin.getDataManager().setSpinDuration(newDuration);
+            player.sendMessage("§eSpin duration set to: §f" + newDuration + " seconds");
+            openSettingsMenu(player);
+        } else if (name.contains("PARTICLES")) {
+            plugin.getDataManager().setParticlesEnabled(!plugin.getDataManager().isParticlesEnabled());
+            player.sendMessage(plugin.getDataManager().isParticlesEnabled() ? 
+                "§aParticles have been §lENABLED" : "§cParticles have been §lDISABLED");
+            openSettingsMenu(player);
+        } else if (name.contains("SOUNDS")) {
+            plugin.getDataManager().setSoundsEnabled(!plugin.getDataManager().isSoundsEnabled());
+            player.sendMessage(plugin.getDataManager().isSoundsEnabled() ? 
+                "§aSounds have been §lENABLED" : "§cSounds have been §lDISABLED");
+            openSettingsMenu(player);
+        }
+    }
+                                                        }
