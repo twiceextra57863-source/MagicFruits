@@ -27,7 +27,7 @@ public class ThiefAbility implements Ability {
                 player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
             }
             if (plugin.getDataManager().isParticlesEnabled()) {
-                player.getWorld().spawnParticle(Particle.SPELL_WITCH, player.getLocation(), 50, 0.5, 1, 0.5, 0.1);
+                player.getWorld().spawnParticle(Particle.SPELL_MOB, player.getLocation(), 50, 0.5, 1, 0.5, 0.1);
             }
             player.sendMessage("§8§l🎭 §fYou have become invisible for 10 seconds!");
         } else {
