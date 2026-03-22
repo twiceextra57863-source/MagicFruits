@@ -1,6 +1,7 @@
 package com.example.magicfruits;
 
 import com.example.magicfruits.abilities.Ability;
+import com.example.magicfruits.abilities.PortalAbility;
 import com.example.magicfruits.gui.AdminGUI;
 import com.example.magicfruits.managers.*;
 import org.bukkit.entity.Player;
