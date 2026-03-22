@@ -1,7 +1,6 @@
 package com.example.magicfruits;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
 import org.bukkit.*;
@@ -9,7 +8,6 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -22,7 +20,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.util.Vector;
 
 import java.time.Duration;
 import java.util.*;
@@ -39,82 +36,82 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     private enum FruitType {
         BUDDHA_FRUIT("§e§l✨ §6§lBUDDHA FRUIT §e§l✨", 
                     "§7§oEnlightened by ancient wisdom",
-                    new PotionEffect(PotionEffectType.STRENGTH, 200, 2),
-                    new PotionEffect(PotionEffectType.RESISTANCE, 300, 1),
+                    PotionEffectType.STRENGTH,
+                    PotionEffectType.RESISTANCE,
                     Color.fromRGB(0xFFD700),
                     "YELLOW"),
         
         CRYSTAL_FRUIT("§b§l💎 §3§lCRYSTAL FRUIT §b§l💎",
                      "§7§oPure crystalline power",
-                     new PotionEffect(PotionEffectType.SPEED, 300, 2),
-                     new PotionEffect(PotionEffectType.JUMP_BOOST, 200, 1),
+                     PotionEffectType.SPEED,
+                     PotionEffectType.JUMP_BOOST,
                      Color.fromRGB(0x00FFFF),
                      "LIGHT_BLUE"),
         
         DRAGON_FRUIT("§c§l🐉 §4§lDRAGON FRUIT §c§l🐉",
                     "§7§oWrath of the ancient dragons",
-                    new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 400, 1),
-                    new PotionEffect(PotionEffectType.INCREASE_DAMAGE, 200, 1),
+                    PotionEffectType.FIRE_RESISTANCE,
+                    PotionEffectType.STRENGTH,
                     Color.fromRGB(0xFF4444),
                     "RED"),
         
         PHOENIX_FRUIT("§6§l🔥 §e§lPHOENIX FRUIT §6§l🔥",
                      "§7§oReborn from eternal flames",
-                     new PotionEffect(PotionEffectType.REGENERATION, 300, 2),
-                     new PotionEffect(PotionEffectType.ABSORPTION, 400, 2),
+                     PotionEffectType.REGENERATION,
+                     PotionEffectType.ABSORPTION,
                      Color.fromRGB(0xFFA500),
                      "ORANGE"),
         
         VOID_FRUIT("§5§l🌑 §8§lVOID FRUIT §5§l🌑",
                   "§7§oEmbrace the darkness within",
-                  new PotionEffect(PotionEffectType.INVISIBILITY, 200, 1),
-                  new PotionEffect(PotionEffectType.NIGHT_VISION, 600, 1),
+                  PotionEffectType.INVISIBILITY,
+                  PotionEffectType.NIGHT_VISION,
                   Color.fromRGB(0xAA00AA),
                   "PURPLE"),
         
         THUNDER_FRUIT("§3§l⚡ §b§lTHUNDER FRUIT §3§l⚡",
                      "§7§oCommand the storm itself",
-                     new PotionEffect(PotionEffectType.CONDUIT_POWER, 300, 1),
-                     new PotionEffect(PotionEffectType.DOLPHINS_GRACE, 400, 1),
+                     PotionEffectType.CONDUIT_POWER,
+                     PotionEffectType.DOLPHINS_GRACE,
                      Color.fromRGB(0x44AAFF),
                      "LIGHT_BLUE"),
         
         NATURE_FRUIT("§2§l🌿 §a§lNATURE FRUIT §2§l🌿",
                     "§7§oOne with the natural world",
-                    new PotionEffect(PotionEffectType.SATURATION, 400, 1),
-                    new PotionEffect(PotionEffectType.LUCK, 600, 1),
+                    PotionEffectType.SATURATION,
+                    PotionEffectType.LUCK,
                     Color.fromRGB(0x44FF44),
                     "GREEN"),
         
         ICE_FRUIT("§b§l❄️ §f§lICE FRUIT §b§l❄️",
                  "§7§oFreeze your enemies solid",
-                 new PotionEffect(PotionEffectType.SLOWNESS, 200, 2),
-                 new PotionEffect(PotionEffectType.WATER_BREATHING, 600, 1),
+                 PotionEffectType.SLOWNESS,
+                 PotionEffectType.WATER_BREATHING,
                  Color.fromRGB(0x88FFFF),
                  "LIGHT_BLUE"),
         
         STAR_FRUIT("§d§l⭐ §5§lSTAR FRUIT §d§l⭐",
                   "§7§oHarness cosmic energy",
-                  new PotionEffect(PotionEffectType.GLOWING, 400, 1),
-                  new PotionEffect(PotionEffectType.LEVITATION, 100, 1),
+                  PotionEffectType.GLOWING,
+                  PotionEffectType.LEVITATION,
                   Color.fromRGB(0xFF88FF),
                   "MAGENTA"),
         
         BLOOD_FRUIT("§4§l🩸 §c§lBLOOD FRUIT §4§l🩸",
                    "§7§oSacrifice for ultimate power",
-                   new PotionEffect(PotionEffectType.WITHER, 100, 1),
-                   new PotionEffect(PotionEffectType.HEAL, 1, 2),
+                   PotionEffectType.WITHER,
+                   PotionEffectType.INSTANT_HEALTH,
                    Color.fromRGB(0xFF4444),
                    "RED");
         
         private final String displayName;
         private final String description;
-        private final PotionEffect primaryEffect;
-        private final PotionEffect secondaryEffect;
+        private final PotionEffectType primaryEffect;
+        private final PotionEffectType secondaryEffect;
         private final Color dyeColor;
         private final String dyeMaterial;
         
-        FruitType(String displayName, String description, PotionEffect primary, PotionEffect secondary, Color dyeColor, String dyeMaterial) {
+        FruitType(String displayName, String description, PotionEffectType primary, PotionEffectType secondary, Color dyeColor, String dyeMaterial) {
             this.displayName = displayName;
             this.description = description;
             this.primaryEffect = primary;
@@ -159,7 +156,7 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
                 return switch (this) {
                     case BUDDHA_FRUIT -> "Grants divine strength and resilience";
                     case CRYSTAL_FRUIT -> "Increases movement and jumping capabilities";
-                    case DRAGON_FRUIT -> "Imbues you with dragon's fire resistance";
+                    case DRAGON_FRUIT -> "Imbues you with dragon's fire resistance and strength";
                     case PHOENIX_FRUIT -> "Regenerates health rapidly";
                     case VOID_FRUIT -> "Embrace the shadows themselves";
                     case THUNDER_FRUIT -> "Channel the power of storms";
@@ -247,7 +244,7 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     }
     
     private void executePrimaryAbility(Player player, FruitType fruit) {
-        player.addPotionEffect(fruit.primaryEffect);
+        player.addPotionEffect(new PotionEffect(fruit.primaryEffect, 200, 2));
         
         Location loc = player.getLocation();
         for (int i = 0; i < 50; i++) {
@@ -255,7 +252,7 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             double radius = Math.random() * 2;
             double x = Math.cos(angle) * radius;
             double z = Math.sin(angle) * radius;
-            player.getWorld().spawnParticle(Particle.SPELL_WITCH, loc.clone().add(x, 1 + Math.random(), z), 0, 0, 0, 0, 1);
+            player.getWorld().spawnParticle(Particle.ENCHANT, loc.clone().add(x, 1 + Math.random(), z), 0, 0, 0, 0, 1);
         }
         
         player.showTitle(Title.title(
@@ -270,7 +267,7 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     private void executeSecondaryAbility(Player player, FruitType fruit) {
         switch (fruit) {
             case BUDDHA_FRUIT:
-                player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 100, 4));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 100, 4));
                 break;
             case CRYSTAL_FRUIT:
                 player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation(), 100, 1, 1, 1, 0.5);
@@ -289,13 +286,16 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
                 player.teleport(randomLoc);
                 break;
             case THUNDER_FRUIT:
-                player.getWorld().strikeLightning(player.getTargetBlock(null, 50).getLocation());
+                Block targetBlock = player.getTargetBlock(null, 50);
+                if (targetBlock != null) {
+                    player.getWorld().strikeLightning(targetBlock.getLocation());
+                }
                 break;
             case NATURE_FRUIT:
-                player.getWorld().spawnParticle(Particle.VILLAGER_HAPPY, player.getLocation(), 100, 2, 2, 2);
+                player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation(), 100, 2, 2, 2);
                 break;
             case ICE_FRUIT:
-                player.getWorld().spawnParticle(Particle.SNOWBALL, player.getLocation(), 200, 3, 1, 3);
+                player.getWorld().spawnParticle(Particle.ITEM_SNOWBALL, player.getLocation(), 200, 3, 1, 3);
                 break;
             case STAR_FRUIT:
                 player.setAllowFlight(true);
@@ -369,7 +369,7 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
                         double radius = 3;
                         double x = Math.cos(angle) * radius;
                         double z = Math.sin(angle) * radius;
-                        player.getWorld().spawnParticle(Particle.SPELL_WITCH, player.getLocation().clone().add(x, 2, z), 0, 0, 0, 0, 1);
+                        player.getWorld().spawnParticle(Particle.ENCHANT, player.getLocation().clone().add(x, 2, z), 0, 0, 0, 0, 1);
                     }
                     
                     player.sendActionBar(Component.text("§6§l⟳ §eSpinning: §f" + current.displayName + " §6§l⟳"));
