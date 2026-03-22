@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
 import org.bukkit.*;
+import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -32,6 +33,8 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
     private Map<UUID, Integer> spinTaskIds = new ConcurrentHashMap<>();
     private Map<UUID, FruitType> lastSelectedFruit = new ConcurrentHashMap<>();
     private Map<UUID, Long> abilityCooldown = new ConcurrentHashMap<>();
+    private Map<UUID, Integer> cooldownTasks = new ConcurrentHashMap<>();
+    private Map<UUID, FruitType> lastUsedFruit = new ConcurrentHashMap<>();
     
     private enum FruitType {
         BUDDHA_FRUIT("§e§l✨ §6§lBUDDHA FRUIT §e§l✨", 
@@ -180,6 +183,14 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
                 };
             }
         }
+        
+        public String getDisplayName() {
+            return displayName;
+        }
+        
+        public String getShortName() {
+            return ChatColor.stripColor(displayName).replaceAll("[^a-zA-Z0-9]", "");
+        }
     }
     
     @Override
@@ -224,10 +235,12 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
                 event.setCancelled(true);
                 long currentTime = System.currentTimeMillis();
                 long lastUse = abilityCooldown.getOrDefault(player.getUniqueId(), 0L);
+                long timeLeft = 30000 - (currentTime - lastUse);
                 
                 if (currentTime - lastUse < 30000) {
-                    long remaining = (30000 - (currentTime - lastUse)) / 1000;
-                    player.sendMessage("§c§l⚠ §fAbility on cooldown! §7(" + remaining + " seconds)");
+                    long remaining = timeLeft / 1000;
+                    player.sendMessage("§c§l⚠ §fAbility on cooldown! §7(" + remaining + " seconds remaining)");
+                    showCooldownOnXPBar(player, (int) (timeLeft / 1000), fruit);
                     return;
                 }
                 
@@ -238,9 +251,59 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
                 }
                 
                 abilityCooldown.put(player.getUniqueId(), currentTime);
+                lastUsedFruit.put(player.getUniqueId(), fruit);
+                startCooldownDisplay(player, fruit);
                 break;
             }
         }
+    }
+    
+    private void startCooldownDisplay(Player player, FruitType fruit) {
+        // Cancel existing cooldown task
+        if (cooldownTasks.containsKey(player.getUniqueId())) {
+            Bukkit.getScheduler().cancelTask(cooldownTasks.get(player.getUniqueId()));
+        }
+        
+        new BukkitRunnable() {
+            int secondsLeft = 30;
+            
+            @Override
+            public void run() {
+                if (secondsLeft <= 0) {
+                    // Cooldown finished - show ready status
+                    player.setExp(0);
+                    player.setLevel(0);
+                    player.sendActionBar(Component.text("§a§l✓ §f" + fruit.getDisplayName() + " §a§lREADY!"));
+                    cooldownTasks.remove(player.getUniqueId());
+                    this.cancel();
+                    return;
+                }
+                
+                showCooldownOnXPBar(player, secondsLeft, fruit);
+                secondsLeft--;
+            }
+        }.runTaskTimer(this, 0L, 20L);
+    }
+    
+    private void showCooldownOnXPBar(Player player, int secondsLeft, FruitType fruit) {
+        // Set XP bar progress (0.0 to 1.0)
+        float progress = (float) secondsLeft / 30.0f;
+        player.setExp(progress);
+        
+        // Set level to show seconds remaining
+        player.setLevel(secondsLeft);
+        
+        // Show action bar with cooldown info
+        String message = "§c§l⏳ §f" + fruit.getDisplayName() + " §c§lCOOLDOWN: §e" + secondsLeft + "s";
+        
+        // Add visual indicator based on time remaining
+        if (secondsLeft <= 5) {
+            message = "§c§l⚠ §f" + fruit.getDisplayName() + " §c§lREADY IN: §e" + secondsLeft + "s §c§l⚠";
+        } else if (secondsLeft <= 10) {
+            message = "§6§l⌛ §f" + fruit.getDisplayName() + " §6§lCOOLDOWN: §e" + secondsLeft + "s";
+        }
+        
+        player.sendActionBar(Component.text(message));
     }
     
     private void executePrimaryAbility(Player player, FruitType fruit) {
@@ -255,6 +318,8 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
             player.getWorld().spawnParticle(Particle.ENCHANT, loc.clone().add(x, 1 + Math.random(), z), 0, 0, 0, 0, 1);
         }
         
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+        
         player.showTitle(Title.title(
             Component.text("§6§l✦ " + fruit.displayName + " §6§l✦"),
             Component.text("§ePrimary ability activated!"),
@@ -268,37 +333,46 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
         switch (fruit) {
             case BUDDHA_FRUIT:
                 player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 100, 4));
+                player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.0f);
                 break;
             case CRYSTAL_FRUIT:
                 player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation(), 100, 1, 1, 1, 0.5);
+                player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.5f);
                 break;
             case DRAGON_FRUIT:
                 player.getWorld().createExplosion(player.getLocation(), 3, false, false, player);
+                player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 0.5f);
                 break;
             case PHOENIX_FRUIT:
                 player.setHealth(20);
                 player.setFireTicks(0);
                 player.getWorld().spawnParticle(Particle.FLAME, player.getLocation(), 200, 1, 1, 1, 0.5);
+                player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_DEATH, 1.0f, 1.0f);
                 break;
             case VOID_FRUIT:
                 Location randomLoc = player.getLocation().add(Math.random() * 20 - 10, 0, Math.random() * 20 - 10);
                 randomLoc.setY(player.getWorld().getHighestBlockYAt(randomLoc));
                 player.teleport(randomLoc);
+                player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
                 break;
             case THUNDER_FRUIT:
                 Block targetBlock = player.getTargetBlock(null, 50);
                 if (targetBlock != null) {
                     player.getWorld().strikeLightning(targetBlock.getLocation());
+                    player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
                 }
                 break;
             case NATURE_FRUIT:
                 player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation(), 100, 2, 2, 2);
+                player.playSound(player.getLocation(), Sound.BLOCK_GRASS_PLACE, 1.0f, 1.0f);
                 break;
             case ICE_FRUIT:
                 player.getWorld().spawnParticle(Particle.ITEM_SNOWBALL, player.getLocation(), 200, 3, 1, 3);
+                player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, 1.0f, 0.5f);
                 break;
             case STAR_FRUIT:
                 player.setAllowFlight(true);
+                player.playSound(player.getLocation(), Sound.ENTITY_ILLUSIONER_CAST_SPELL, 1.0f, 1.0f);
                 new BukkitRunnable() {
                     @Override
                     public void run() {
@@ -314,6 +388,7 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
                         player.setHealth(Math.min(20, player.getHealth() + 2));
                     }
                 });
+                player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SHOOT, 1.0f, 0.8f);
                 break;
         }
         
@@ -347,6 +422,8 @@ public final class MagicFruits extends JavaPlugin implements Listener, CommandEx
                         double z = Math.sin(rad) * 3;
                         player.getWorld().spawnParticle(Particle.FIREWORK, player.getLocation().clone().add(x, 2, z), 0, 0, 0, 0, 1);
                     }
+                    
+                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 2.0f);
                     
                     player.showTitle(Title.title(
                         Component.text("§6§l🎉 YOU GOT! 🎉"),
