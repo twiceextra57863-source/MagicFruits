@@ -52,7 +52,7 @@ public class StealGUI implements Listener {
             ItemStack head = new ItemStack(Material.PLAYER_HEAD);
             SkullMeta meta = (SkullMeta) head.getItemMeta();
             meta.setOwningPlayer(target);
-            meta.displayName(Component.text("§e§l" + target.getName()));
+            meta.setDisplayName("§e§l" + target.getName());
             
             // Check if target has any fruit
             boolean hasFruit = false;
@@ -67,18 +67,18 @@ public class StealGUI implements Listener {
                 }
             }
             
-            List<Component> lore = new ArrayList<>();
+            List<String> lore = new ArrayList<>();
             if (hasFruit && targetFruit != null) {
-                lore.add(Component.text("§a✓ Has: " + targetFruit.getDisplayName()));
-                lore.add(Component.empty());
-                lore.add(Component.text("§eClick to steal their ability!"));
-                lore.add(Component.text("§c⚠ This will put their ability on cooldown!"));
+                lore.add("§a✓ Has: " + targetFruit.getDisplayName());
+                lore.add("");
+                lore.add("§eClick to steal their ability!");
+                lore.add("§c⚠ This will put their ability on cooldown!");
             } else {
-                lore.add(Component.text("§c✗ No magical fruit found!"));
-                lore.add(Component.empty());
-                lore.add(Component.text("§7Cannot steal from this player"));
+                lore.add("§c✗ No magical fruit found!");
+                lore.add("");
+                lore.add("§7Cannot steal from this player");
             }
-            meta.lore(lore);
+            meta.setLore(lore);
             head.setItemMeta(meta);
             gui.setItem(slot, head);
             slot++;
@@ -89,13 +89,13 @@ public class StealGUI implements Listener {
         // Info item
         ItemStack info = new ItemStack(Material.BOOK);
         ItemMeta infoMeta = info.getItemMeta();
-        infoMeta.displayName(Component.text("§6§l✦ ABILITY STEALER ✦"));
-        List<Component> infoLore = new ArrayList<>();
-        infoLore.add(Component.text("§7Steal a player's fruit ability!"));
-        infoLore.add(Component.text("§7The victim will be frozen for 5 seconds"));
-        infoLore.add(Component.text("§7You keep the ability for 20 seconds"));
-        infoLore.add(Component.text("§7Cooldown: 2 minutes"));
-        infoMeta.lore(infoLore);
+        infoMeta.setDisplayName("§6§l✦ ABILITY STEALER ✦");
+        List<String> infoLore = new ArrayList<>();
+        infoLore.add("§7Steal a player's fruit ability!");
+        infoLore.add("§7The victim will be frozen for 5 seconds");
+        infoLore.add("§7You keep the ability for 20 seconds");
+        infoLore.add("§7Cooldown: 2 minutes");
+        infoMeta.setLore(infoLore);
         info.setItemMeta(infoMeta);
         gui.setItem(49, info);
         
@@ -159,8 +159,8 @@ public class StealGUI implements Listener {
             }
         }
         
-        // Put target's ability on cooldown
-        plugin.getCooldownManager().setCooldown(targetId);
+        // Put target's ability on cooldown using the stolen fruit type
+        plugin.getCooldownManager().setCooldown(targetId, targetFruit);
         target.sendMessage("§c§l⚠ §e" + thief.getName() + " §chas stolen your ability! It is now on cooldown!");
         
         // Give thief the stolen ability for 20 seconds
