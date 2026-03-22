@@ -33,7 +33,7 @@ public class VoidAbility implements Ability {
             player.addPotionEffect(new PotionEffect(PotionEffectType.NIGHT_VISION, 600, 1));
             
             if (plugin.getDataManager().isParticlesEnabled()) {
-                player.getWorld().spawnParticle(Particle.SPELL_MOB, player.getLocation(), 50, 1, 1, 1, 0.1);
+                player.getWorld().spawnParticle(Particle.DRAGON_BREATH, player.getLocation(), 50, 1, 1, 1, 0.1);
             }
             
             if (plugin.getDataManager().isSoundsEnabled()) {
