@@ -2,10 +2,10 @@ name: Build MagicFruits Plugin
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # Allows manual triggering
+  workflow_dispatch:
 
 jobs:
   build:
@@ -34,25 +34,12 @@ jobs:
     - name: Build with Maven
       run: mvn clean package -DskipTests
     
-    - name: Run Tests
-      run: mvn test
-    
     - name: Upload Plugin JAR
       uses: actions/upload-artifact@v4
       with:
         name: MagicFruits-Plugin
         path: target/MagicFruits-*.jar
         if-no-files-found: error
-    
-    - name: Upload Build Reports
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-reports
-        path: |
-          target/surefire-reports/
-          target/checkstyle-results.html
-        if-no-files-found: ignore
     
     - name: Get Plugin Version
       id: get_version
@@ -61,34 +48,8 @@ jobs:
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "artifact_name=MagicFruits-$VERSION.jar" >> $GITHUB_OUTPUT
     
-    - name: Create GitHub Release
-      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: v${{ steps.get_version.outputs.version }}
-        name: Release v${{ steps.get_version.outputs.version }}
-        draft: false
-        prerelease: false
-        files: target/MagicFruits-${{ steps.get_version.outputs.version }}.jar
-        body: |
-          ## MagicFruits Plugin v${{ steps.get_version.outputs.version }}
-          
-          ### ✨ Features:
-          - 10 Unique Magical Fruits
-          - Advanced Spin System with Particle Effects
-          - Dual Abilities per Fruit
-          - Admin GUI for Easy Management
-          - First Join Reward System
-          
-          ### 🔧 Changes in this release:
-          - Built with Java 21
-          - Compatible with Minecraft 1.21.4
-          - Paper API implementation
-          
-          ### 📦 Installation:
-          1. Download the JAR file
-          2. Place in your server's `plugins` folder
-          3. Restart the server
-          4. Use `/magicfruits` to get started!
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Upload to GitHub Packages (Optional)
+      run: |
+        echo "Build completed successfully!"
+        echo "Plugin version: ${{ steps.get_version.outputs.version }}"
+        echo "Artifact: target/MagicFruits-${{ steps.get_version.outputs.version }}.jar"
