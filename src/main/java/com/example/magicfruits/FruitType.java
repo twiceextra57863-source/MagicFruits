@@ -79,103 +79,74 @@ public enum FruitType {
     
     private final String displayName;
     private final String description;
-    private final Material itemMaterial;
+    private final Material material;
     private final int customModelData;
     private final Ability ability;
     
-    FruitType(String displayName, String description, Material itemMaterial, 
+    FruitType(String displayName, String description, Material material, 
               int customModelData, Ability ability) {
         this.displayName = displayName;
         this.description = description;
-        this.itemMaterial = itemMaterial;
+        this.material = material;
         this.customModelData = customModelData;
         this.ability = ability;
     }
     
     public ItemStack createItem() {
-        ItemStack item = new ItemStack(itemMaterial);
+        ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
-        
-        meta.displayName(Component.text(displayName).decoration(TextDecoration.ITALIC, false));
+        meta.setDisplayName(displayName);
         meta.setCustomModelData(customModelData);
         
-        List<Component> lore = new ArrayList<>();
-        lore.add(Component.empty());
-        lore.add(Component.text("§8§m----------------------------------------"));
-        lore.add(Component.text("§7§l✦ §f§lMYSTICAL ARTIFACT §7§l✦"));
-        lore.add(Component.text("§8§m----------------------------------------"));
-        lore.add(Component.empty());
-        lore.add(Component.text("§7§o" + description).decoration(TextDecoration.ITALIC, true));
-        lore.add(Component.empty());
-        lore.add(Component.text("§6§l✨ ABILITIES ✨"));
-        lore.add(Component.text(" §e▶ §fRight Click: §7" + ability.getPrimaryDescription()));
-        lore.add(Component.text(" §e▶ §fCrouch + Right Click: §7" + ability.getSecondaryDescription()));
-        lore.add(Component.empty());
-        lore.add(Component.text("§5§l⚡ KEYBINDS ⚡"));
-        lore.add(Component.text(" §d• §fUse: §7Right Click"));
-        lore.add(Component.text(" §d• §fSpecial: §7Sneak + Right Click"));
-        lore.add(Component.empty());
-        lore.add(Component.text("§8§m----------------------------------------"));
-        lore.add(Component.text("§7§l✦ §f§lLEGENDARY FRUIT §7§l✦"));
-        lore.add(Component.text("§8§m----------------------------------------"));
+        List<String> lore = new ArrayList<>();
+        lore.add("§8§m----------------------------------------");
+        lore.add("§7§l✦ §f§lMYSTICAL ARTIFACT §7§l✦");
+        lore.add("§8§m----------------------------------------");
+        lore.add("");
+        lore.add("§7§o" + description);
+        lore.add("");
+        lore.add("§6§l✨ ABILITIES ✨");
+        lore.add(" §e▶ §fRight Click: §7" + ability.getPrimaryDescription());
+        lore.add(" §e▶ §fCrouch + Right Click: §7" + ability.getSecondaryDescription());
+        lore.add("");
+        lore.add("§5§l⚡ KEYBINDS ⚡");
+        lore.add(" §d• §fUse: §7Right Click");
+        lore.add(" §d• §fSpecial: §7Sneak + Right Click");
+        lore.add("");
+        lore.add("§8§m----------------------------------------");
+        lore.add("§7§l✦ §f§lLEGENDARY FRUIT §7§l✦");
+        lore.add("§8§m----------------------------------------");
         
-        meta.lore(lore);
-        item.setItemMeta(meta);
-        return item;
-    }
-    
-    public ItemStack createDisplayItem() {
-        ItemStack item = new ItemStack(itemMaterial);
-        ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text(displayName));
-        meta.setCustomModelData(customModelData);
-        item.setItemMeta(meta);
-        return item;
-    }
-    
-    public boolean isFruitItem(ItemStack item) {
-        if (item == null || item.getType() == Material.AIR) return false;
-        if (item.getItemMeta() == null) return false;
-        if (item.getItemMeta().displayName() == null) return false;
-        
-        // Compare using component equality
-        return item.getItemMeta().displayName().equals(Component.text(displayName));
-    }
-    
-    public ItemStack getIcon() {
-        ItemStack item = new ItemStack(itemMaterial);
-        ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text(displayName));
-        meta.setCustomModelData(customModelData);
-        List<Component> lore = new ArrayList<>();
-        lore.add(Component.text("§7" + description));
-        lore.add(Component.empty());
-        lore.add(Component.text("§eClick to give this fruit!"));
-        meta.lore(lore);
+        meta.setLore(lore);
         item.setItemMeta(meta);
         return item;
     }
     
     public static FruitType fromItem(ItemStack item) {
-        if (item == null) return null;
-        if (item.getType() != Material.NETHER_STAR) return null;
-        if (item.getItemMeta() == null) return null;
-        if (item.getItemMeta().displayName() == null) return null;
-        
+        if (item == null || item.getItemMeta() == null) return null;
+        String name = item.getItemMeta().getDisplayName();
         for (FruitType fruit : values()) {
-            if (fruit.getDisplayName().equals(item.getItemMeta().displayName().toString())) {
-                return fruit;
-            }
-            // Also try direct component comparison
-            if (item.getItemMeta().displayName().equals(Component.text(fruit.getDisplayName()))) {
+            if (fruit.displayName.equals(name)) {
                 return fruit;
             }
         }
         return null;
     }
     
+    public ItemStack getIcon() {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(displayName);
+        meta.setCustomModelData(customModelData);
+        List<String> lore = new ArrayList<>();
+        lore.add("§7" + description);
+        lore.add("");
+        lore.add("§eClick to give this fruit!");
+        meta.setLore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+    
     public String getDisplayName() { return displayName; }
     public Ability getAbility() { return ability; }
-    public int getCustomModelData() { return customModelData; }
-    public Material getItemMaterial() { return itemMaterial; }
 }
