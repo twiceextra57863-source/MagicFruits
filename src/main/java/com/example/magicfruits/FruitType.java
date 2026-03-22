@@ -46,11 +46,11 @@ public enum FruitType {
                  1006,
                  new ThunderAbility()),
     
-    NATURE_FRUIT("§2§l🌿 §a§lNATURE FRUIT §2§l🌿",
-                "§7§oOne with the natural world",
+    THRONE_FRUIT("§6§l👑 §e§lTHRONE FRUIT §6§l👑",
+                "§7§oRule with royal power",
                 Material.NETHER_STAR,
                 1007,
-                new NatureAbility()),
+                new ThroneAbility()),
     
     ICE_FRUIT("§b§l❄️ §f§lICE FRUIT §b§l❄️",
              "§7§oFreeze your enemies solid",
