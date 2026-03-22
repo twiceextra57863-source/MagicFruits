@@ -140,7 +140,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             return Arrays.asList("spin", "give", "dashboard", "reload", "reset");
         } else if (args.length == 2 && args[0].equalsIgnoreCase("give")) {
-            return null; // Return null for player names
+            return null;
         } else if (args.length == 3 && args[0].equalsIgnoreCase("give")) {
             return Arrays.stream(FruitType.values()).map(Enum::name).map(String::toLowerCase).toList();
         } else if (args.length == 2 && args[0].equalsIgnoreCase("spin")) {
