@@ -1,0 +1,1 @@
+package com.example.magicfruits.abilities; public class IceAbility implements Ability {}
