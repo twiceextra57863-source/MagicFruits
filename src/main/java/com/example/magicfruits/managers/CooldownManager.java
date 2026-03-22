@@ -13,30 +13,36 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CooldownManager {
     
     private final MagicFruits plugin;
-    private final Map<UUID, Long> cooldowns = new ConcurrentHashMap<>();
-    private final Map<UUID, Integer> activeTasks = new ConcurrentHashMap<>();
+    private final Map<UUID, Map<FruitType, Long>> cooldowns = new ConcurrentHashMap<>();
+    private final Map<UUID, Map<FruitType, Integer>> activeTasks = new ConcurrentHashMap<>();
     
     public CooldownManager(MagicFruits plugin) {
         this.plugin = plugin;
     }
     
-    public boolean isOnCooldown(UUID playerId) {
-        if (!cooldowns.containsKey(playerId)) return false;
-        return cooldowns.get(playerId) > System.currentTimeMillis();
+    public boolean isOnCooldown(UUID playerId, FruitType fruit) {
+        Map<FruitType, Long> playerCooldowns = cooldowns.get(playerId);
+        if (playerCooldowns == null) return false;
+        Long cooldownEnd = playerCooldowns.get(fruit);
+        if (cooldownEnd == null) return false;
+        return cooldownEnd > System.currentTimeMillis();
     }
     
-    public void setCooldown(UUID playerId) {
-        cooldowns.put(playerId, System.currentTimeMillis() + (plugin.getDataManager().getCooldownTime() * 1000L));
+    public void setCooldown(UUID playerId, FruitType fruit) {
+        Map<FruitType, Long> playerCooldowns = cooldowns.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>());
+        playerCooldowns.put(fruit, System.currentTimeMillis() + (plugin.getDataManager().getCooldownTime() * 1000L));
     }
     
     public void startCooldown(UUID playerId, FruitType fruit) {
-        setCooldown(playerId);
+        setCooldown(playerId, fruit);
         startCooldownDisplay(playerId, fruit);
     }
     
     public void startCooldownDisplay(UUID playerId, FruitType fruit) {
-        if (activeTasks.containsKey(playerId)) {
-            plugin.getServer().getScheduler().cancelTask(activeTasks.get(playerId));
+        Map<FruitType, Integer> playerTasks = activeTasks.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>());
+        
+        if (playerTasks.containsKey(fruit)) {
+            plugin.getServer().getScheduler().cancelTask(playerTasks.get(fruit));
         }
         
         int taskId = new BukkitRunnable() {
@@ -50,14 +56,16 @@ public class CooldownManager {
                     return;
                 }
                 
-                if (secondsLeft <= 0) {
+                if (secondsLeft <= 0 || !isOnCooldown(playerId, fruit)) {
                     player.setExp(0);
                     player.setLevel(0);
                     if (plugin.getDataManager().isSoundsEnabled()) {
                         player.playSound(player.getLocation(), org.bukkit.Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 2.0f);
                     }
                     player.sendActionBar(Component.text("§a§l✓ §f" + fruit.getDisplayName() + " §a§lREADY!"));
-                    activeTasks.remove(playerId);
+                    
+                    Map<FruitType, Integer> tasks = activeTasks.get(playerId);
+                    if (tasks != null) tasks.remove(fruit);
                     this.cancel();
                     return;
                 }
@@ -67,7 +75,7 @@ public class CooldownManager {
             }
         }.runTaskTimer(plugin, 0L, 20L).getTaskId();
         
-        activeTasks.put(playerId, taskId);
+        playerTasks.put(fruit, taskId);
     }
     
     public void showCooldownOnXPBar(Player player, int secondsLeft, FruitType fruit) {
@@ -87,13 +95,23 @@ public class CooldownManager {
     }
     
     public void showCooldownMessage(Player player, FruitType fruit) {
-        long timeLeft = cooldowns.getOrDefault(player.getUniqueId(), 0L) - System.currentTimeMillis();
+        Map<FruitType, Long> playerCooldowns = cooldowns.get(player.getUniqueId());
+        if (playerCooldowns == null) return;
+        
+        Long cooldownEnd = playerCooldowns.get(fruit);
+        if (cooldownEnd == null) return;
+        
+        long timeLeft = cooldownEnd - System.currentTimeMillis();
         long secondsLeft = timeLeft / 1000;
-        player.sendMessage("§c§l⚠ §fAbility on cooldown! §7(" + secondsLeft + " seconds remaining)");
+        player.sendMessage("§c§l⚠ §f" + fruit.getDisplayName() + " on cooldown! §7(" + secondsLeft + " seconds remaining)");
     }
     
-    public int getRemainingSeconds(UUID playerId) {
-        long timeLeft = cooldowns.getOrDefault(playerId, 0L) - System.currentTimeMillis();
+    public int getRemainingSeconds(UUID playerId, FruitType fruit) {
+        Map<FruitType, Long> playerCooldowns = cooldowns.get(playerId);
+        if (playerCooldowns == null) return 0;
+        Long cooldownEnd = playerCooldowns.get(fruit);
+        if (cooldownEnd == null) return 0;
+        long timeLeft = cooldownEnd - System.currentTimeMillis();
         return (int) Math.max(0, timeLeft / 1000);
     }
     
@@ -101,7 +119,11 @@ public class CooldownManager {
         new BukkitRunnable() {
             @Override
             public void run() {
-                cooldowns.entrySet().removeIf(entry -> entry.getValue() <= System.currentTimeMillis());
+                long currentTime = System.currentTimeMillis();
+                cooldowns.forEach((playerId, fruitCooldowns) -> {
+                    fruitCooldowns.entrySet().removeIf(entry -> entry.getValue() <= currentTime);
+                });
+                cooldowns.entrySet().removeIf(entry -> entry.getValue().isEmpty());
             }
         }.runTaskTimer(plugin, 1200L, 1200L);
     }
