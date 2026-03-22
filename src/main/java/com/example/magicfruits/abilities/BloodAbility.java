@@ -29,7 +29,7 @@ public class BloodAbility implements Ability {
                 player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SHOOT, 1.0f, 0.8f);
             }
             if (plugin.getDataManager().isParticlesEnabled()) {
-                player.getWorld().spawnParticle(Particle.SPELL_MOB, player.getLocation(), 100, 2, 2, 2, 0.1);
+                player.getWorld().spawnParticle(Particle.DUST, player.getLocation(), 100, 2, 2, 2, new Particle.DustOptions(org.bukkit.Color.RED, 1.0f));
             }
             player.sendMessage("§4§l🩸 §fYou drain life from nearby enemies!");
         } else {
@@ -38,7 +38,7 @@ public class BloodAbility implements Ability {
             player.addPotionEffect(new PotionEffect(PotionEffectType.INSTANT_HEALTH, 1, 2));
             
             if (plugin.getDataManager().isParticlesEnabled()) {
-                player.getWorld().spawnParticle(Particle.SPELL_MOB, player.getLocation(), 100, 1, 1, 1, 0.2);
+                player.getWorld().spawnParticle(Particle.DUST, player.getLocation(), 100, 1, 1, 1, new Particle.DustOptions(org.bukkit.Color.RED, 1.0f));
             }
             
             if (plugin.getDataManager().isSoundsEnabled()) {
