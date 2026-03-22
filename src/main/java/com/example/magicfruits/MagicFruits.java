@@ -3,7 +3,6 @@ package com.example.magicfruits;
 import com.example.magicfruits.abilities.Ability;
 import com.example.magicfruits.gui.AdminGUI;
 import com.example.magicfruits.managers.*;
-import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -113,51 +112,51 @@ public final class MagicFruits extends JavaPlugin implements Listener {
     
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
-        Player player = event.getPlayer();
-        
-        // Check if it's a right-click action
         Action action = event.getAction();
-        if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) {
-            return;
-        }
         
-        ItemStack item = player.getInventory().getItemInMainHand();
-        FruitType fruit = FruitType.fromItem(item);
-        
-        if (fruit != null) {
-            event.setCancelled(true);
+        // Check for right click (air or block)
+        if (action == Action.RIGHT_CLICK_AIR || action == Action.RIGHT_CLICK_BLOCK) {
+            Player player = event.getPlayer();
+            ItemStack item = player.getInventory().getItemInMainHand();
             
-            // Prevent spam (500ms cooldown between uses)
-            long currentTime = System.currentTimeMillis();
-            long lastInteract = lastInteractTime.getOrDefault(player.getUniqueId(), 0L);
-            if (currentTime - lastInteract < 500) {
-                return;
-            }
-            lastInteractTime.put(player.getUniqueId(), currentTime);
+            // Check if the item is a magical fruit
+            FruitType fruit = FruitType.fromItem(item);
             
-            // Check stolen ability
-            if (stolenAbilities.containsKey(player.getUniqueId())) {
-                Ability stolen = stolenAbilities.get(player.getUniqueId());
-                if (stolenAbilityExpiry.getOrDefault(player.getUniqueId(), 0L) > System.currentTimeMillis()) {
-                    stolen.execute(player, player.isSneaking());
+            if (fruit != null) {
+                event.setCancelled(true);
+                
+                // Prevent spam (500ms cooldown between uses)
+                long currentTime = System.currentTimeMillis();
+                long lastInteract = lastInteractTime.getOrDefault(player.getUniqueId(), 0L);
+                if (currentTime - lastInteract < 500) {
                     return;
-                } else {
-                    stolenAbilities.remove(player.getUniqueId());
-                    stolenAbilityExpiry.remove(player.getUniqueId());
                 }
+                lastInteractTime.put(player.getUniqueId(), currentTime);
+                
+                // Check stolen ability
+                if (stolenAbilities.containsKey(player.getUniqueId())) {
+                    Ability stolen = stolenAbilities.get(player.getUniqueId());
+                    if (stolenAbilityExpiry.getOrDefault(player.getUniqueId(), 0L) > System.currentTimeMillis()) {
+                        stolen.execute(player, player.isSneaking());
+                        return;
+                    } else {
+                        stolenAbilities.remove(player.getUniqueId());
+                        stolenAbilityExpiry.remove(player.getUniqueId());
+                    }
+                }
+                
+                // Check cooldown
+                if (cooldownManager.isOnCooldown(player.getUniqueId())) {
+                    cooldownManager.showCooldownMessage(player, fruit);
+                    cooldownManager.showCooldownOnXPBar(player, cooldownManager.getRemainingSeconds(player.getUniqueId()), fruit);
+                    return;
+                }
+                
+                // Execute ability
+                Ability ability = fruit.getAbility();
+                ability.execute(player, player.isSneaking());
+                cooldownManager.startCooldown(player.getUniqueId(), fruit);
             }
-            
-            // Check cooldown
-            if (cooldownManager.isOnCooldown(player.getUniqueId())) {
-                cooldownManager.showCooldownMessage(player, fruit);
-                cooldownManager.showCooldownOnXPBar(player, cooldownManager.getRemainingSeconds(player.getUniqueId()), fruit);
-                return;
-            }
-            
-            // Execute ability
-            Ability ability = fruit.getAbility();
-            ability.execute(player, player.isSneaking());
-            cooldownManager.startCooldown(player.getUniqueId(), fruit);
         }
     }
     
