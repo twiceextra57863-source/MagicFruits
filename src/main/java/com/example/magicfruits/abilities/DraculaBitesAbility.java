@@ -8,7 +8,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -103,7 +102,7 @@ public class DraculaBitesAbility implements Ability, Listener {
                 double angle = Math.random() * 2 * Math.PI;
                 double x = Math.cos(angle) * radius;
                 double z = Math.sin(angle) * radius;
-                player.getWorld().spawnParticle(Particle.SPELL_WITCH, player.getLocation().clone().add(x, Math.random() * 2, z), 0, 0, 0, 0, 1);
+                player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation().clone().add(x, Math.random() * 2, z), 0, 0, 0, 0, 1);
                 player.getWorld().spawnParticle(Particle.DUST, player.getLocation().clone().add(x, Math.random() * 2, z), 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(0x8B0000), 1.0f));
             }
         }
@@ -113,7 +112,7 @@ public class DraculaBitesAbility implements Ability, Listener {
             player.playSound(player.getLocation(), Sound.ENTITY_BAT_TAKEOFF, 1.0f, 1.0f);
         }
         
-        player.addPotionEffect(new PotionEffect(PotionEffectType.INCREASE_DAMAGE, 300, 0));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 300, 0));
         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 300, 1));
         
         player.sendTitle("§4§l🩸 BLOOD PHASE ACTIVATED! 🫸", 
@@ -158,7 +157,7 @@ public class DraculaBitesAbility implements Ability, Listener {
         
         if (plugin.getDataManager().isParticlesEnabled()) {
             for (int i = 0; i < 50; i++) {
-                player.getWorld().spawnParticle(Particle.SPELL_WITCH, player.getLocation(), 0, 0, 0, 0, 1);
+                player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation(), 0, 0, 0, 0, 1);
             }
         }
         
@@ -260,7 +259,7 @@ public class DraculaBitesAbility implements Ability, Listener {
                 // Visual effects
                 if (MagicFruits.getInstance().getDataManager().isParticlesEnabled()) {
                     player.getWorld().spawnParticle(Particle.HEART, player.getLocation().add(0, 1, 0), 5, 0.5, 0.5, 0.5, 0.1);
-                    player.getWorld().spawnParticle(Particle.SPELL_WITCH, event.getEntity().getLocation(), 20, 0.3, 0.3, 0.3, 0.1);
+                    player.getWorld().spawnParticle(Particle.PORTAL, event.getEntity().getLocation(), 20, 0.3, 0.3, 0.3, 0.1);
                 }
                 
                 if (MagicFruits.getInstance().getDataManager().isSoundsEnabled()) {
@@ -282,7 +281,8 @@ public class DraculaBitesAbility implements Ability, Listener {
         UUID uuid = player.getUniqueId();
         
         // Check if player is riding bat and left clicks
-        if (activeBat.containsKey(uuid) && event.getAction() == org.bukkit.event.block.Action.LEFT_CLICK_AIR) {
+        if (activeBat.containsKey(uuid) && (event.getAction() == org.bukkit.event.block.Action.LEFT_CLICK_AIR || 
+            event.getAction() == org.bukkit.event.block.Action.LEFT_CLICK_BLOCK)) {
             event.setCancelled(true);
             
             // Check bite cooldown (2 seconds)
@@ -313,7 +313,7 @@ public class DraculaBitesAbility implements Ability, Listener {
                         
                         // Visual effects
                         if (MagicFruits.getInstance().getDataManager().isParticlesEnabled()) {
-                            target.getWorld().spawnParticle(Particle.SPELL_WITCH, target.getLocation(), 30, 0.5, 0.5, 0.5, 0.1);
+                            target.getWorld().spawnParticle(Particle.PORTAL, target.getLocation(), 30, 0.5, 0.5, 0.5, 0.1);
                             target.getWorld().spawnParticle(Particle.DUST, target.getLocation(), 20, 0.3, 0.3, 0.3, new Particle.DustOptions(Color.fromRGB(0x8B0000), 1.0f));
                             player.getWorld().spawnParticle(Particle.HEART, player.getLocation().add(0, 1, 0), 3, 0.3, 0.3, 0.3, 0.1);
                         }
