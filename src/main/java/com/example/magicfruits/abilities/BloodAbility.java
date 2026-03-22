@@ -35,7 +35,7 @@ public class BloodAbility implements Ability {
         } else {
             // Primary ability: Wither effect
             player.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 100, 1));
-            player.addPotionEffect(new PotionEffect(PotionEffectType.HEAL, 1, 2));
+            player.addPotionEffect(new PotionEffect(PotionEffectType.INSTANT_HEALTH, 1, 2));
             
             if (plugin.getDataManager().isParticlesEnabled()) {
                 player.getWorld().spawnParticle(Particle.SPELL_WITCH, player.getLocation(), 100, 1, 1, 1, 0.2);
