@@ -48,8 +48,6 @@ public final class MagicFruits extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(adminGUI, this);
         getServer().getPluginManager().registerEvents(new com.example.magicfruits.gui.StealGUI(this), this);
         getServer().getPluginManager().registerEvents(new com.example.magicfruits.gui.FruitMenuGUI(this), this);
-        
-        // Register PortalAbility events
         getServer().getPluginManager().registerEvents(new PortalAbility(), this);
         
         // Register commands
