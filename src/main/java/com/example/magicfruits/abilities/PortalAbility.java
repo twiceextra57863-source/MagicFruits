@@ -23,6 +23,7 @@ public class PortalAbility implements Ability, Listener {
     private final Map<UUID, PortalData> activePortals = new ConcurrentHashMap<>();
     private final Map<UUID, SummonPortalData> activeSummonPortals = new ConcurrentHashMap<>();
     private final Map<UUID, Long> summonCooldown = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> teleportCooldown = new ConcurrentHashMap<>();
     
     private static class PortalCreationData {
         Location firstPortal;
@@ -87,7 +88,7 @@ public class PortalAbility implements Ability, Listener {
     private void executeTeleportPortal(Player player, MagicFruits plugin) {
         UUID uuid = player.getUniqueId();
         
-        // Check if player is already creating a portal
+        // Check if player is already creating a portal (no cooldown on first click)
         if (creatingPortal.containsKey(uuid)) {
             PortalCreationData data = creatingPortal.get(uuid);
             
@@ -107,9 +108,9 @@ public class PortalAbility implements Ability, Listener {
             
             Location secondPortal = targetBlock.getLocation().add(0.5, 1, 0.5);
             
-            // Create Doctor Strange style portal effects
-            createDoctorStrangePortal(data.firstPortal, plugin);
-            createDoctorStrangePortal(secondPortal, plugin);
+            // Create full 3D portal rings with mathematical calculations
+            createFullPortalRings(data.firstPortal, plugin);
+            createFullPortalRings(secondPortal, plugin);
             
             // Store connected portals
             activePortals.put(uuid, new PortalData(data.firstPortal, secondPortal, 
@@ -130,7 +131,7 @@ public class PortalAbility implements Ability, Listener {
             return;
         }
         
-        // First portal placement
+        // First portal placement - NO COOLDOWN CHECK HERE
         Block targetBlock = player.getTargetBlock(null, 30);
         if (targetBlock == null) {
             player.sendMessage("§c§l⚠ §fNo block in sight!");
@@ -139,8 +140,8 @@ public class PortalAbility implements Ability, Listener {
         
         Location firstPortal = targetBlock.getLocation().add(0.5, 1, 0.5);
         
-        // Create first portal effect
-        createPortalEffect(firstPortal, plugin);
+        // Create full 3D portal ring with mathematical spiral
+        createPortalRingWithSpiral(firstPortal, plugin);
         
         // Store creation data
         creatingPortal.put(uuid, new PortalCreationData(firstPortal, System.currentTimeMillis()));
@@ -178,29 +179,53 @@ public class PortalAbility implements Ability, Listener {
         }.runTaskTimer(plugin, 0L, 20L);
     }
     
-    private void createPortalEffect(Location loc, MagicFruits plugin) {
-        World world = loc.getWorld();
+    private void createPortalRingWithSpiral(Location center, MagicFruits plugin) {
+        World world = center.getWorld();
         
-        // Create rotating ring effect
+        // Create a 3D spiral ring using mathematical calculations
         new BukkitRunnable() {
             int ticks = 0;
+            double radius = 1.5;
             
             @Override
             public void run() {
-                if (ticks >= 40) {
+                if (ticks >= 80) {
                     this.cancel();
                     return;
                 }
                 
-                double radius = 1.2;
-                for (int i = 0; i < 360; i += 15) {
-                    double rad = Math.toRadians(i + ticks * 10);
-                    double x = Math.cos(rad) * radius;
-                    double z = Math.sin(rad) * radius;
+                // Spiral ring - parametric equations
+                for (int i = 0; i < 360; i += 8) {
+                    double theta = Math.toRadians(i + ticks * 5);
+                    double x = Math.cos(theta) * radius;
+                    double z = Math.sin(theta) * radius;
+                    
+                    // Height variation using sine wave
+                    double y = 1.0 + Math.sin(theta * 2) * 0.5;
                     
                     if (plugin.getDataManager().isParticlesEnabled()) {
-                        world.spawnParticle(Particle.PORTAL, loc.clone().add(x, 0.5, z), 0, 0, 0, 0, 1);
-                        world.spawnParticle(Particle.END_ROD, loc.clone().add(x, 1.2, z), 0, 0, 0, 0, 1);
+                        // Inner ring - purple portal particles
+                        world.spawnParticle(Particle.PORTAL, center.clone().add(x, y, z), 0, 0, 0, 0, 1);
+                        world.spawnParticle(Particle.END_ROD, center.clone().add(x, y + 0.3, z), 0, 0, 0, 0, 1);
+                        
+                        // Outer ring - golden dust
+                        double xOuter = Math.cos(theta) * (radius + 0.3);
+                        double zOuter = Math.sin(theta) * (radius + 0.3);
+                        world.spawnParticle(Particle.DUST, center.clone().add(xOuter, y, zOuter), 0, 0, 0, 0,
+                            new Particle.DustOptions(Color.fromRGB(0xFFAA44), 0.6f));
+                    }
+                }
+                
+                // Add floating particles inside the portal
+                for (int i = 0; i < 15; i++) {
+                    double angle = Math.random() * 2 * Math.PI;
+                    double r = Math.random() * radius;
+                    double x = Math.cos(angle) * r;
+                    double z = Math.sin(angle) * r;
+                    double y = 1.0 + (Math.random() - 0.5) * 1.0;
+                    
+                    if (plugin.getDataManager().isParticlesEnabled()) {
+                        world.spawnParticle(Particle.SPELL_WITCH, center.clone().add(x, y, z), 0, 0, 0, 0, 1);
                     }
                 }
                 
@@ -209,69 +234,75 @@ public class PortalAbility implements Ability, Listener {
         }.runTaskTimer(plugin, 0L, 1L);
     }
     
-    private void createDoctorStrangePortal(Location loc, MagicFruits plugin) {
-        World world = loc.getWorld();
+    private void createFullPortalRings(Location center, MagicFruits plugin) {
+        World world = center.getWorld();
         
-        // Create Doctor Strange style portal with multiple rings
+        // Create full 3D portal with multiple rotating rings
         new BukkitRunnable() {
             int ticks = 0;
             
             @Override
             public void run() {
-                if (ticks >= 60) {
+                if (ticks >= 100) {
                     this.cancel();
                     return;
                 }
                 
-                // Outer ring
-                double outerRadius = 2.0;
-                // Middle ring
-                double middleRadius = 1.5;
-                // Inner ring
-                double innerRadius = 1.0;
-                
-                // Create multiple rotating rings
-                for (int i = 0; i < 360; i += 10) {
-                    double rad = Math.toRadians(i + ticks * 15);
+                // Ring 1 - Outer ring (rotating clockwise)
+                double radius1 = 2.0;
+                for (int i = 0; i < 360; i += 12) {
+                    double theta = Math.toRadians(i + ticks * 8);
+                    double x = Math.cos(theta) * radius1;
+                    double z = Math.sin(theta) * radius1;
+                    double y = 1.0 + Math.sin(theta * 2) * 0.3;
                     
-                    // Outer ring - orange/gold
-                    double x1 = Math.cos(rad) * outerRadius;
-                    double z1 = Math.sin(rad) * outerRadius;
                     if (plugin.getDataManager().isParticlesEnabled()) {
-                        world.spawnParticle(Particle.DUST, loc.clone().add(x1, 0.5, z1), 0, 0, 0, 0, 
+                        world.spawnParticle(Particle.DUST, center.clone().add(x, y, z), 0, 0, 0, 0,
                             new Particle.DustOptions(Color.fromRGB(0xFF6600), 0.8f));
-                        world.spawnParticle(Particle.FLAME, loc.clone().add(x1, 1, z1), 0, 0, 0, 0, 0.5);
+                        world.spawnParticle(Particle.FLAME, center.clone().add(x, y, z), 0, 0, 0, 0, 0.3);
                     }
+                }
+                
+                // Ring 2 - Middle ring (rotating counter-clockwise)
+                double radius2 = 1.5;
+                for (int i = 0; i < 360; i += 10) {
+                    double theta = Math.toRadians(i - ticks * 6);
+                    double x = Math.cos(theta) * radius2;
+                    double z = Math.sin(theta) * radius2;
+                    double y = 1.2 + Math.cos(theta * 1.5) * 0.2;
                     
-                    // Middle ring - orange/red
-                    double rad2 = Math.toRadians(i + ticks * 12);
-                    double x2 = Math.cos(rad2) * middleRadius;
-                    double z2 = Math.sin(rad2) * middleRadius;
                     if (plugin.getDataManager().isParticlesEnabled()) {
-                        world.spawnParticle(Particle.DUST, loc.clone().add(x2, 1, z2), 0, 0, 0, 0,
+                        world.spawnParticle(Particle.DUST, center.clone().add(x, y, z), 0, 0, 0, 0,
                             new Particle.DustOptions(Color.fromRGB(0xFF3300), 0.7f));
-                        world.spawnParticle(Particle.PORTAL, loc.clone().add(x2, 1.2, z2), 0, 0, 0, 0, 1);
+                        world.spawnParticle(Particle.PORTAL, center.clone().add(x, y + 0.2, z), 0, 0, 0, 0, 1);
                     }
+                }
+                
+                // Ring 3 - Inner ring (rotating opposite)
+                double radius3 = 1.0;
+                for (int i = 0; i < 360; i += 8) {
+                    double theta = Math.toRadians(i + ticks * 10);
+                    double x = Math.cos(theta) * radius3;
+                    double z = Math.sin(theta) * radius3;
+                    double y = 1.5 + Math.sin(theta * 3) * 0.2;
                     
-                    // Inner ring - golden
-                    double rad3 = Math.toRadians(i + ticks * 10);
-                    double x3 = Math.cos(rad3) * innerRadius;
-                    double z3 = Math.sin(rad3) * innerRadius;
                     if (plugin.getDataManager().isParticlesEnabled()) {
-                        world.spawnParticle(Particle.END_ROD, loc.clone().add(x3, 1.5, z3), 0, 0, 0, 0, 1);
-                        world.spawnParticle(Particle.DUST, loc.clone().add(x3, 0.8, z3), 0, 0, 0, 0,
+                        world.spawnParticle(Particle.END_ROD, center.clone().add(x, y, z), 0, 0, 0, 0, 1);
+                        world.spawnParticle(Particle.DUST, center.clone().add(x, y - 0.2, z), 0, 0, 0, 0,
                             new Particle.DustOptions(Color.fromRGB(0xFFAA44), 0.6f));
                     }
                 }
                 
-                // Central glow - using PORTAL instead of SPELL_WITCH
+                // Central vortex particles
                 for (int i = 0; i < 20; i++) {
-                    double angle = Math.random() * 2 * Math.PI;
-                    double radius = Math.random() * 1.5;
-                    double x = Math.cos(angle) * radius;
-                    double z = Math.sin(angle) * radius;
+                    double angle = Math.toRadians(ticks * 15 + i * 18);
+                    double r = Math.sin(ticks * 0.1) * 0.8;
+                    double x = Math.cos(angle) * r;
+                    double z = Math.sin(angle) * r;
+                    double y = 1.0 + Math.sin(angle * 2) * 0.5;
+                    
                     if (plugin.getDataManager().isParticlesEnabled()) {
-                        world.spawnParticle(Particle.PORTAL, loc.clone().add(x, 1 + Math.random(), z), 0, 0, 0, 0, 1);
+                        world.spawnParticle(Particle.PORTAL, center.clone().add(x, y, z), 0, 0, 0, 0, 1);
                     }
                 }
                 
@@ -302,8 +333,8 @@ public class PortalAbility implements Ability, Listener {
         
         Location portalLoc = targetBlock.getLocation().add(0.5, 1, 0.5);
         
-        // Create unique summon portal effect
-        createSummonPortalEffect(portalLoc, plugin);
+        // Create full summon portal with mathematical vortex
+        createSummonPortalVortex(portalLoc, plugin);
         
         // Store summon portal
         activeSummonPortals.put(uuid, new SummonPortalData(portalLoc, player, System.currentTimeMillis() + 120000));
@@ -321,47 +352,56 @@ public class PortalAbility implements Ability, Listener {
         player.sendMessage("§eYou have 2 minutes to use this portal!");
     }
     
-    private void createSummonPortalEffect(Location loc, MagicFruits plugin) {
-        World world = loc.getWorld();
+    private void createSummonPortalVortex(Location center, MagicFruits plugin) {
+        World world = center.getWorld();
         
-        // Create unique purple-black vortex effect
+        // Create a beautiful vortex portal effect
         new BukkitRunnable() {
             int ticks = 0;
             
             @Override
             public void run() {
-                if (ticks >= 80) {
+                if (ticks >= 120) {
                     this.cancel();
                     return;
                 }
                 
-                double radius = 2.0;
-                double height = 2.5;
+                double radius = 2.2;
+                double height = 2.8;
                 
-                // Spiral effect
-                for (int i = 0; i < 360; i += 10) {
-                    double rad = Math.toRadians(i + ticks * 8);
-                    double x = Math.cos(rad) * radius;
-                    double z = Math.sin(rad) * radius;
-                    double y = Math.sin(rad * 2) * 0.5 + 1;
+                // Spiral vortex - parametric equations
+                for (int i = 0; i < 360; i += 12) {
+                    double theta = Math.toRadians(i + ticks * 10);
+                    double r = radius * (1 - Math.sin(ticks * 0.03) * 0.2);
+                    double x = Math.cos(theta) * r;
+                    double z = Math.sin(theta) * r;
+                    double y = 1.0 + (Math.sin(theta * 2) * 0.3) + (ticks * 0.02);
                     
-                    if (plugin.getDataManager().isParticlesEnabled()) {
-                        world.spawnParticle(Particle.DUST, loc.clone().add(x, y, z), 0, 0, 0, 0,
-                            new Particle.DustOptions(Color.fromRGB(0x6600CC), 0.8f));
-                        world.spawnParticle(Particle.PORTAL, loc.clone().add(x, y + 0.5, z), 0, 0, 0, 0, 1);
+                    if (y < height && plugin.getDataManager().isParticlesEnabled()) {
+                        // Purple vortex particles
+                        world.spawnParticle(Particle.DUST, center.clone().add(x, y, z), 0, 0, 0, 0,
+                            new Particle.DustOptions(Color.fromRGB(0x6600CC), 0.9f));
+                        world.spawnParticle(Particle.PORTAL, center.clone().add(x, y + 0.2, z), 0, 0, 0, 0, 1);
+                        
+                        // Outer ring - dark purple
+                        double xOuter = Math.cos(theta + Math.PI) * (r + 0.3);
+                        double zOuter = Math.sin(theta + Math.PI) * (r + 0.3);
+                        world.spawnParticle(Particle.DUST, center.clone().add(xOuter, y, zOuter), 0, 0, 0, 0,
+                            new Particle.DustOptions(Color.fromRGB(0x440088), 0.7f));
                     }
                 }
                 
-                // Rising particles - using PORTAL instead of SPELL_WITCH
-                for (int i = 0; i < 30; i++) {
+                // Rising energy particles
+                for (int i = 0; i < 40; i++) {
                     double angle = Math.random() * 2 * Math.PI;
-                    double radiusR = Math.random() * 2;
-                    double x = Math.cos(angle) * radiusR;
-                    double z = Math.sin(angle) * radiusR;
+                    double r = Math.random() * 2.0;
+                    double x = Math.cos(angle) * r;
+                    double z = Math.sin(angle) * r;
                     double y = Math.random() * height;
                     
                     if (plugin.getDataManager().isParticlesEnabled()) {
-                        world.spawnParticle(Particle.PORTAL, loc.clone().add(x, y, z), 0, 0, 0, 0, 1);
+                        world.spawnParticle(Particle.PORTAL, center.clone().add(x, y, z), 0, 0, 0, 0, 1);
+                        world.spawnParticle(Particle.END_ROD, center.clone().add(x, y, z), 0, 0, 0, 0, 0.5);
                     }
                 }
                 
@@ -373,14 +413,13 @@ public class PortalAbility implements Ability, Listener {
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
+        Block clickedBlock = event.getClickedBlock();
         
+        if (clickedBlock == null) return;
+        Location clickedLoc = clickedBlock.getLocation().add(0.5, 1, 0.5);
+        
+        // Check for summon portal (LEFT CLICK)
         if (event.getAction() == org.bukkit.event.block.Action.LEFT_CLICK_BLOCK) {
-            Block clickedBlock = event.getClickedBlock();
-            if (clickedBlock == null) return;
-            
-            Location clickedLoc = clickedBlock.getLocation().add(0.5, 1, 0.5);
-            
-            // Check for summon portal
             for (Map.Entry<UUID, SummonPortalData> entry : activeSummonPortals.entrySet()) {
                 SummonPortalData data = entry.getValue();
                 if (clickedLoc.distance(data.portalLocation) < 1.5 && data.owner.equals(player)) {
@@ -391,28 +430,58 @@ public class PortalAbility implements Ability, Listener {
             }
         }
         
-        // Also check for teleport portals (right click to teleport)
+        // Check for teleport portals (RIGHT CLICK to teleport)
         if (event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) {
-            Block clickedBlock = event.getClickedBlock();
-            if (clickedBlock == null) return;
-            
-            Location clickedLoc = clickedBlock.getLocation().add(0.5, 1, 0.5);
-            
             for (Map.Entry<UUID, PortalData> entry : activePortals.entrySet()) {
                 PortalData data = entry.getValue();
                 if (clickedLoc.distance(data.portal1) < 1.5) {
                     event.setCancelled(true);
                     player.teleport(data.portal2);
                     player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
+                    
+                    // Create teleport effect
+                    createTeleportEffect(data.portal2, MagicFruits.getInstance());
                     break;
                 } else if (clickedLoc.distance(data.portal2) < 1.5) {
                     event.setCancelled(true);
                     player.teleport(data.portal1);
                     player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
+                    
+                    createTeleportEffect(data.portal1, MagicFruits.getInstance());
                     break;
                 }
             }
         }
+    }
+    
+    private void createTeleportEffect(Location loc, MagicFruits plugin) {
+        World world = loc.getWorld();
+        
+        new BukkitRunnable() {
+            int ticks = 0;
+            
+            @Override
+            public void run() {
+                if (ticks >= 20) {
+                    this.cancel();
+                    return;
+                }
+                
+                double radius = 1.5;
+                for (int i = 0; i < 360; i += 20) {
+                    double rad = Math.toRadians(i + ticks * 20);
+                    double x = Math.cos(rad) * radius;
+                    double z = Math.sin(rad) * radius;
+                    
+                    if (plugin.getDataManager().isParticlesEnabled()) {
+                        world.spawnParticle(Particle.PORTAL, loc.clone().add(x, 0.5, z), 0, 0, 0, 0, 1);
+                        world.spawnParticle(Particle.END_ROD, loc.clone().add(x, 1.2, z), 0, 0, 0, 0, 1);
+                    }
+                }
+                
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
     }
     
     private void openSummonGUI(Player player) {
@@ -489,7 +558,7 @@ public class PortalAbility implements Ability, Listener {
             
             // Create portal effect at summon location
             Location summonLoc = player.getLocation();
-            createSummonEffect(summonLoc, plugin);
+            createTeleportEffect(summonLoc, plugin);
             
             // Teleport target to player
             target.teleport(summonLoc);
@@ -514,36 +583,6 @@ public class PortalAbility implements Ability, Listener {
             // Remove the summon portal after use
             activeSummonPortals.remove(player.getUniqueId());
         }
-    }
-    
-    private void createSummonEffect(Location loc, MagicFruits plugin) {
-        World world = loc.getWorld();
-        
-        new BukkitRunnable() {
-            int ticks = 0;
-            
-            @Override
-            public void run() {
-                if (ticks >= 30) {
-                    this.cancel();
-                    return;
-                }
-                
-                double radius = 2.0;
-                for (int i = 0; i < 360; i += 15) {
-                    double rad = Math.toRadians(i + ticks * 15);
-                    double x = Math.cos(rad) * radius;
-                    double z = Math.sin(rad) * radius;
-                    
-                    if (plugin.getDataManager().isParticlesEnabled()) {
-                        world.spawnParticle(Particle.PORTAL, loc.clone().add(x, 0.5, z), 0, 0, 0, 0, 1);
-                        world.spawnParticle(Particle.END_ROD, loc.clone().add(x, 1.2, z), 0, 0, 0, 0, 1);
-                    }
-                }
-                
-                ticks++;
-            }
-        }.runTaskTimer(plugin, 0L, 1L);
     }
     
     @Override
