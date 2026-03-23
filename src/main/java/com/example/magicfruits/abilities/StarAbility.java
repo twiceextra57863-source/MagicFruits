@@ -2,10 +2,10 @@ package com.example.magicfruits.abilities;
 
 import com.example.magicfruits.MagicFruits;
 import org.bukkit.*;
+import org.bukkit.block.Block;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -93,10 +93,10 @@ public class StarAbility implements Ability, Listener {
         SupernovaData supernova = new SupernovaData(player, System.currentTimeMillis() + 8000);
         activeSupernova.put(uuid, supernova);
         
-        // Cosmic power effects
+        // Cosmic power effects - using RESISTANCE instead of DAMAGE_RESISTANCE
         player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 160, 2, false, false));
         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 160, 2, false, false));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 160, 1, false, false));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 160, 1, false, false));
         
         // Epic sound
         if (plugin.getDataManager().isSoundsEnabled()) {
@@ -160,7 +160,7 @@ public class StarAbility implements Ability, Listener {
                             new Particle.DustOptions(Color.fromRGB(0xFFD700), 0.8f));
                         
                         // Trail
-                        starLoc.getWorld().spawnParticle(Particle.SPELL_WITCH, starLoc, 5, 0.2, 0.2, 0.2, 0.05);
+                        starLoc.getWorld().spawnParticle(Particle.PORTAL, starLoc, 5, 0.2, 0.2, 0.2, 0.05);
                     }
                 }
                 
@@ -299,14 +299,14 @@ public class StarAbility implements Ability, Listener {
         UUID uuid = player.getUniqueId();
         activeSupernova.remove(uuid);
         
-        // Final explosion
+        // Final explosion - using EXPLOSION instead of EXPLOSION_LARGE
         if (plugin.getDataManager().isParticlesEnabled()) {
             for (int i = 0; i < 200; i++) {
                 double angle = Math.random() * 2 * Math.PI;
                 double radius = Math.random() * 4;
                 double x = Math.cos(angle) * radius;
                 double z = Math.sin(angle) * radius;
-                player.getWorld().spawnParticle(Particle.EXPLOSION_LARGE, player.getLocation().clone().add(x, 1, z), 0, 0, 0, 0, 1);
+                player.getWorld().spawnParticle(Particle.EXPLOSION, player.getLocation().clone().add(x, 1, z), 0, 0, 0, 0, 1);
                 player.getWorld().spawnParticle(Particle.FLAME, player.getLocation().clone().add(x, 1, z), 5, 0.2, 0.2, 0.2, 0.05);
             }
         }
@@ -385,7 +385,7 @@ public class StarAbility implements Ability, Listener {
                     if (plugin.getDataManager().isParticlesEnabled()) {
                         center.getWorld().spawnParticle(Particle.DUST, center.clone().add(x, 0.5, z), 0, 0, 0, 0,
                             new Particle.DustOptions(Color.fromRGB(0x330033), 1.0f));
-                        center.getWorld().spawnParticle(Particle.SPELL_WITCH, center.clone().add(x, 1, z), 0, 0, 0, 0, 1);
+                        center.getWorld().spawnParticle(Particle.PORTAL, center.clone().add(x, 1, z), 0, 0, 0, 0, 1);
                         center.getWorld().spawnParticle(Particle.PORTAL, center.clone().add(x, 1.5, z), 0, 0, 0, 0, 1);
                     }
                 }
@@ -475,14 +475,14 @@ public class StarAbility implements Ability, Listener {
     private void deactivateBlackHole(BlackHoleData blackHole, MagicFruits plugin) {
         activeBlackHole.values().remove(blackHole);
         
-        // Implosion effect
+        // Implosion effect - using EXPLOSION instead of EXPLOSION_LARGE
         if (plugin.getDataManager().isParticlesEnabled()) {
             for (int i = 0; i < 300; i++) {
                 double angle = Math.random() * 2 * Math.PI;
                 double radius = Math.random() * 5;
                 double x = Math.cos(angle) * radius;
                 double z = Math.sin(angle) * radius;
-                blackHole.center.getWorld().spawnParticle(Particle.EXPLOSION_LARGE, blackHole.center.clone().add(x, 1, z), 0, 0, 0, 0, 1);
+                blackHole.center.getWorld().spawnParticle(Particle.EXPLOSION, blackHole.center.clone().add(x, 1, z), 0, 0, 0, 0, 1);
                 blackHole.center.getWorld().spawnParticle(Particle.PORTAL, blackHole.center.clone().add(x, 1, z), 10, 0.2, 0.2, 0.2, 0.05);
             }
         }
