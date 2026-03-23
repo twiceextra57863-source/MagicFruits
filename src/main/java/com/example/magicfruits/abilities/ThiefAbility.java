@@ -2,6 +2,7 @@ package com.example.magicfruits.abilities;
 
 import com.example.magicfruits.FruitType;
 import com.example.magicfruits.MagicFruits;
+import com.example.magicfruits.gui.StealGUI;
 import org.bukkit.*;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -53,7 +54,6 @@ public class ThiefAbility implements Ability, Listener {
     public ThiefAbility() {
         MagicFruits.getInstance().getServer().getPluginManager().registerEvents(this, MagicFruits.getInstance());
         
-        // Cleanup tasks
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -78,7 +78,6 @@ public class ThiefAbility implements Ability, Listener {
         MagicFruits plugin = MagicFruits.getInstance();
         UUID uuid = thief.getUniqueId();
         
-        // Check cooldown (2 minutes = 120 seconds)
         long lastSteal = stealCooldown.getOrDefault(uuid, 0L);
         long remainingTime = (120000 - (System.currentTimeMillis() - lastSteal)) / 1000;
         
@@ -89,7 +88,6 @@ public class ThiefAbility implements Ability, Listener {
         
         Inventory gui = Bukkit.createInventory(null, 54, "§8§l🎭 §6§lSTEAL ABILITY §8§l🎭");
         
-        // Create decorative border
         ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
         ItemMeta borderMeta = border.getItemMeta();
         borderMeta.setDisplayName(" ");
@@ -101,14 +99,12 @@ public class ThiefAbility implements Ability, Listener {
             }
         }
         
-        // Title decoration
         ItemStack titleDeco = new ItemStack(Material.GOLD_BLOCK);
         ItemMeta titleMeta = titleDeco.getItemMeta();
         titleMeta.setDisplayName("§8§l══════════ §6§l✦ §f§lABILITY THIEVES §6§l✦ §8§l══════════");
         titleDeco.setItemMeta(titleMeta);
         gui.setItem(4, titleDeco);
         
-        // Add online players with advanced scanning
         int slot = 19;
         List<Player> players = new ArrayList<>(Bukkit.getOnlinePlayers());
         Collections.shuffle(players);
@@ -121,57 +117,11 @@ public class ThiefAbility implements Ability, Listener {
             meta.setOwningPlayer(target);
             meta.setDisplayName("§e§l" + target.getName());
             
-            // Advanced fruit detection with priority scanning
             FruitType targetFruit = null;
-            int priority = Integer.MAX_VALUE;
-            
-            // Scan main hand first (highest priority)
-            ItemStack mainHand = target.getInventory().getItemInMainHand();
-            if (mainHand != null) {
-                FruitType fruit = FruitType.fromItem(mainHand);
-                if (fruit != null) {
-                    targetFruit = fruit;
-                    priority = 1;
-                }
-            }
-            
-            // Scan off hand (second priority)
-            if (targetFruit == null) {
-                ItemStack offHand = target.getInventory().getItemInOffHand();
-                if (offHand != null) {
-                    FruitType fruit = FruitType.fromItem(offHand);
-                    if (fruit != null) {
-                        targetFruit = fruit;
-                        priority = 2;
-                    }
-                }
-            }
-            
-            // Scan hotbar slots (priority 3-12)
-            if (targetFruit == null) {
-                for (int i = 0; i < 9; i++) {
-                    ItemStack item = target.getInventory().getItem(i);
-                    if (item != null) {
-                        FruitType fruit = FruitType.fromItem(item);
-                        if (fruit != null) {
-                            targetFruit = fruit;
-                            priority = 3 + i;
-                            break;
-                        }
-                    }
-                }
-            }
-            
-            // Scan full inventory
-            if (targetFruit == null) {
-                for (ItemStack item : target.getInventory().getContents()) {
-                    if (item != null) {
-                        FruitType fruit = FruitType.fromItem(item);
-                        if (fruit != null) {
-                            targetFruit = fruit;
-                            break;
-                        }
-                    }
+            for (ItemStack item : target.getInventory().getContents()) {
+                if (item != null) {
+                    targetFruit = FruitType.fromItem(item);
+                    if (targetFruit != null) break;
                 }
             }
             
@@ -197,7 +147,6 @@ public class ThiefAbility implements Ability, Listener {
                 }
                 
                 lore.add("§a✓ HAS: §6" + targetFruit.getDisplayName());
-                lore.add("§7Priority: §e" + (priority <= 9 ? "Hotbar" : "Inventory"));
                 lore.add("");
                 lore.add("§e◆ CLICK TO STEAL ◆");
                 lore.add("§7Steal their ability for 20 seconds");
@@ -222,7 +171,6 @@ public class ThiefAbility implements Ability, Listener {
             if (slot > 43) break;
         }
         
-        // Add info item
         ItemStack info = new ItemStack(Material.ENDER_EYE);
         ItemMeta infoMeta = info.getItemMeta();
         infoMeta.setDisplayName("§6§l✦ STEAL MECHANICS ✦");
@@ -257,7 +205,6 @@ public class ThiefAbility implements Ability, Listener {
         Player thief = (Player) event.getWhoClicked();
         UUID thiefId = thief.getUniqueId();
         
-        // Check cooldown again
         long lastSteal = stealCooldown.getOrDefault(thiefId, 0L);
         if (System.currentTimeMillis() - lastSteal < 120000) {
             long remaining = (120000 - (System.currentTimeMillis() - lastSteal)) / 1000;
@@ -266,7 +213,7 @@ public class ThiefAbility implements Ability, Listener {
             return;
         }
         
-        String targetName = ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
+        String targetName = org.bukkit.ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
         Player target = Bukkit.getPlayer(targetName);
         
         if (target == null) {
@@ -275,7 +222,6 @@ public class ThiefAbility implements Ability, Listener {
             return;
         }
         
-        // Check if target was recently stolen from (30 second protection)
         if (victimCooldown.containsKey(target.getUniqueId()) && 
             victimCooldown.get(target.getUniqueId()) > System.currentTimeMillis()) {
             long remaining = (victimCooldown.get(target.getUniqueId()) - System.currentTimeMillis()) / 1000;
@@ -284,7 +230,6 @@ public class ThiefAbility implements Ability, Listener {
             return;
         }
         
-        // Find target's fruit
         FruitType targetFruit = null;
         for (ItemStack item : target.getInventory().getContents()) {
             if (item != null) {
@@ -301,7 +246,6 @@ public class ThiefAbility implements Ability, Listener {
         
         MagicFruits plugin = MagicFruits.getInstance();
         
-        // Create advanced freeze effect for all nearby players
         List<Player> frozenList = new ArrayList<>();
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (player.equals(thief) || player.equals(target)) continue;
@@ -313,31 +257,25 @@ public class ThiefAbility implements Ability, Listener {
             }
         }
         
-        // Freeze victim for 5 seconds with advanced effects
         freezePlayer(target, 5);
         target.sendTitle("§c§l⚠ ABILITY STOLEN! ⚠", 
             "§eYour ability was stolen by " + thief.getName(), 10, 80, 10);
         
-        // Create stunning particle vortex around thief
         createStealVortex(thief, target);
         
-        // Put target's ability on cooldown (30 seconds)
-        plugin.getCooldownManager().setCooldown(target.getUniqueId(), targetFruit);
+        // Put target's ability on cooldown for both primary and secondary
+        plugin.getCooldownManager().setCooldown(target.getUniqueId(), targetFruit, "primary");
+        plugin.getCooldownManager().setCooldown(target.getUniqueId(), targetFruit, "secondary");
         
-        // Give thief the stolen ability for 20 seconds
         stolenAbilities.put(thiefId, new StolenAbility(
             targetFruit.getAbility(), 
             targetFruit, 
             System.currentTimeMillis() + 20000
         ));
         
-        // Set cooldown for thief (2 minutes)
         stealCooldown.put(thiefId, System.currentTimeMillis());
-        
-        // Set victim protection (30 seconds)
         victimCooldown.put(target.getUniqueId(), System.currentTimeMillis() + 30000);
         
-        // Visual and sound effects
         if (plugin.getDataManager().isParticlesEnabled()) {
             createStealParticles(thief, target);
         }
@@ -350,21 +288,18 @@ public class ThiefAbility implements Ability, Listener {
             }
         }
         
-        // Send messages
         thief.sendTitle("§a§l✓ ABILITY STOLEN! ✓", 
             "§eYou stole " + targetFruit.getDisplayName(), 10, 60, 10);
         thief.sendMessage("§a§l✓ §fYou have stolen §6" + targetFruit.getDisplayName() + "§f's ability!");
         thief.sendMessage("§eYou can use it for the next 20 seconds!");
-        thief.sendMessage("§7Use it with §eRight Click §7or §eCrouch + Right Click");
         
         target.sendMessage("§c§l⚠ §e" + thief.getName() + " §chas stolen your ability!");
-        target.sendMessage("§7Your ability is on cooldown for 30 seconds!");
+        target.sendMessage("§7Both your abilities are on cooldown for 30 seconds!");
         
         for (Player frozen : frozenList) {
             frozen.sendMessage("§b§l❄️ §fYou were frozen by §e" + thief.getName() + "§f's thief ability!");
         }
         
-        // Schedule ability removal after 20 seconds
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -387,37 +322,11 @@ public class ThiefAbility implements Ability, Listener {
     }
     
     private void freezePlayer(Player player, int seconds) {
-        Location originalLoc = player.getLocation();
-        frozenPlayers.put(player.getUniqueId(), new FreezeData(originalLoc, System.currentTimeMillis(), seconds));
+        frozenPlayers.put(player.getUniqueId(), new FreezeData(player.getLocation(), System.currentTimeMillis(), seconds));
         
         player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, seconds * 20, 255, false, false));
         player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, seconds * 20, 128, false, false));
         player.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, seconds * 20, 1, false, false));
-        
-        MagicFruits plugin = MagicFruits.getInstance();
-        if (plugin.getDataManager().isParticlesEnabled()) {
-            new BukkitRunnable() {
-                int ticks = 0;
-                @Override
-                public void run() {
-                    if (ticks >= seconds * 20 || !frozenPlayers.containsKey(player.getUniqueId())) {
-                        this.cancel();
-                        return;
-                    }
-                    
-                    Location loc = player.getLocation();
-                    for (int i = 0; i < 360; i += 15) {
-                        double rad = Math.toRadians(i);
-                        double radius = 1.2;
-                        double x = Math.cos(rad) * radius;
-                        double z = Math.sin(rad) * radius;
-                        loc.getWorld().spawnParticle(Particle.ITEM_SNOWBALL, loc.clone().add(x, 0.5, z), 0, 0, 0, 0, 1);
-                        loc.getWorld().spawnParticle(Particle.SNOWFLAKE, loc.clone().add(x, 1.2, z), 0, 0, 0, 0, 1);
-                    }
-                    ticks++;
-                }
-            }.runTaskTimer(plugin, 0L, 1L);
-        }
     }
     
     private void createStealVortex(Player thief, Player target) {
@@ -448,7 +357,6 @@ public class ThiefAbility implements Ability, Listener {
                     }
                 }
                 
-                // Create particle beam from target to thief
                 if (ticks < 30) {
                     double progress = ticks / 30.0;
                     Location beamLoc = target.getLocation().add(0, 1, 0).clone()
@@ -469,10 +377,8 @@ public class ThiefAbility implements Ability, Listener {
     private void createStealParticles(Player thief, Player target) {
         MagicFruits plugin = MagicFruits.getInstance();
         
-        // Explosion at thief
         thief.getWorld().spawnParticle(Particle.EXPLOSION, thief.getLocation().add(0, 1, 0), 1, 0, 0, 0, 0);
         
-        // Ring around thief
         for (int i = 0; i < 360; i += 10) {
             double rad = Math.toRadians(i);
             double radius = 2;
@@ -482,7 +388,6 @@ public class ThiefAbility implements Ability, Listener {
             thief.getWorld().spawnParticle(Particle.END_ROD, thief.getLocation().clone().add(x, 1.5, z), 0, 0, 0, 0, 1);
         }
         
-        // Ring around target
         for (int i = 0; i < 360; i += 10) {
             double rad = Math.toRadians(i);
             double radius = 1.5;
@@ -510,4 +415,4 @@ public class ThiefAbility implements Ability, Listener {
     public String getSecondaryDescription() {
         return "Execute steal (use after selecting target from GUI)";
     }
-}
+                                 }
