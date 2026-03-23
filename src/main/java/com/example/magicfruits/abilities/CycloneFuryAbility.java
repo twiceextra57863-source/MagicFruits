@@ -7,7 +7,6 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -334,7 +333,7 @@ public class CycloneFuryAbility implements Ability, Listener {
                 for (int i = 0; i < 10; i++) {
                     double x = targetLoc.getX() + (Math.random() - 0.5) * 2;
                     double z = targetLoc.getZ() + (Math.random() - 0.5) * 2;
-                    targetLoc.getWorld().spawnParticle(Particle.EXPLOSION_LARGE, x, targetLoc.getY() + 1, z, 1, 0, 0, 0, 0);
+                    targetLoc.getWorld().spawnParticle(Particle.EXPLOSION, x, targetLoc.getY() + 1, z, 1, 0, 0, 0, 0);
                     targetLoc.getWorld().spawnParticle(Particle.CLOUD, x, targetLoc.getY() + 1, z, 5, 0.2, 0.2, 0.2, 0.05);
                 }
                 
@@ -373,4 +372,4 @@ public class CycloneFuryAbility implements Ability, Listener {
     public String getSecondaryDescription() {
         return "Summon Tornado (10s, collects blocks, slam with left click, 60s cooldown)";
     }
-    }
+                }
