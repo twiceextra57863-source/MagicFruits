@@ -74,7 +74,13 @@ public enum FruitType {
                 "§7§oMaster of dimensions",
                 Material.NETHER_STAR,
                 1011,
-                new PortalAbility());
+                new PortalAbility()),
+    
+    CYCLONE_FURY_FRUIT("§b§l🌀 §3§lCYCLONE FURY §b§l🌀",
+                       "§7§oCommand the raging winds",
+                       Material.NETHER_STAR,
+                       1012,
+                       new CycloneFuryAbility());
     
     private final String displayName;
     private final String description;
