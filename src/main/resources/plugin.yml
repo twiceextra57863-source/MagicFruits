@@ -8,7 +8,7 @@ description: Advanced magical fruits plugin with spinning mechanics and unique a
 commands:
   magicfruits:
     description: Main command for MagicFruits plugin
-    usage: /<command> [spin|give|dashboard|reload|reset] [player] [fruit]
+    usage: /<command> [spin|give|dashboard|reload|reset|grace] [player] [fruit]
     aliases: [mf, fruits]
     permission: magicfruits.admin
 
