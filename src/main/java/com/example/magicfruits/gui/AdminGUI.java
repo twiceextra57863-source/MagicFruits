@@ -12,7 +12,6 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.SkullMeta;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,10 +27,9 @@ public class AdminGUI implements Listener {
     public void openMainDashboard(Player player) {
         Inventory gui = Bukkit.createInventory(null, 54, "§8§l✦ §6§lMAGIC FRUITS ADMIN §8§l✦");
         
-        // Border
         ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
         ItemMeta borderMeta = border.getItemMeta();
-        borderMeta.displayName(Component.text(" "));
+        borderMeta.setDisplayName(" ");
         border.setItemMeta(borderMeta);
         
         for (int i = 0; i < 54; i++) {
@@ -40,33 +38,39 @@ public class AdminGUI implements Listener {
             }
         }
         
-        // Dashboard Items
+        // Fruits Management
         gui.setItem(10, createMenuItem(Material.CHEST, "§6§l✦ FRUITS MANAGEMENT ✦",
             "§7Manage all magical fruits",
             "§7Give fruits to players"));
         
+        // Player Management
         gui.setItem(12, createMenuItem(Material.PLAYER_HEAD, "§b§l✦ PLAYER MANAGEMENT ✦",
             "§7Manage player spins",
             "§7Spin for specific players"));
         
+        // Spin Control
         gui.setItem(14, createMenuItem(Material.NETHER_STAR, "§5§l✦ SPIN CONTROL ✦",
             "§7Control spin system",
             "§7Start mass spins"));
         
+        // Data Management
         gui.setItem(16, createMenuItem(Material.ANVIL, "§d§l✦ DATA MANAGEMENT ✦",
             "§7Reset player data",
             "§7Clear fruits and progress",
             "§7§c⚠ WARNING: Cannot be undone!"));
         
+        // Global Settings with Toggles
         gui.setItem(29, createMenuItem(Material.COMPARATOR, "§e§l✦ GLOBAL SETTINGS ✦",
             "§7Configure plugin settings",
             "§7First join reward, death drops",
             "§7Cooldown, particles, sounds"));
         
+        // Statistics
         gui.setItem(31, createMenuItem(Material.PAPER, "§a§l✦ STATISTICS ✦",
             "§7View plugin statistics",
             "§7Active players, settings"));
         
+        // Reload Config
         gui.setItem(33, createMenuItem(Material.ENDER_CHEST, "§c§l✦ RELOAD CONFIG ✦",
             "§7Reload configuration",
             "§7Apply new settings"));
@@ -74,38 +78,12 @@ public class AdminGUI implements Listener {
         player.openInventory(gui);
     }
     
-    public void openDataManagement(Player player) {
-        Inventory gui = Bukkit.createInventory(null, 27, "§8§l✦ §6§lDATA MANAGEMENT §8§l✦");
-        
-        gui.setItem(11, createMenuItem(Material.REDSTONE, "§c§lRESET YOUR DATA",
-            "§7Reset your own magical fruit data",
-            "§7You will get a new spin on next join",
-            "§c§l⚠ WARNING: This cannot be undone!"));
-        
-        gui.setItem(13, createMenuItem(Material.PLAYER_HEAD, "§e§lRESET PLAYER DATA",
-            "§7Reset data for a specific player",
-            "§7They will get a new spin on next join",
-            "§c§l⚠ WARNING: This cannot be undone!"));
-        
-        gui.setItem(15, createMenuItem(Material.DRAGON_HEAD, "§4§lRESET ALL DATA",
-            "§7Reset data for ALL players",
-            "§7Everyone will get a new spin on next join",
-            "§c§l⚠ WARNING: This cannot be undone!"));
-        
-        ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
-            "§7Return to main dashboard");
-        gui.setItem(22, back);
-        
-        player.openInventory(gui);
-    }
-    
     public void openSettingsMenu(Player player) {
         Inventory gui = Bukkit.createInventory(null, 54, "§8§l✦ §6§lSETTINGS §8§l✦");
         
-        // Border
         ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
         ItemMeta borderMeta = border.getItemMeta();
-        borderMeta.displayName(Component.text(" "));
+        borderMeta.setDisplayName(" ");
         border.setItemMeta(borderMeta);
         
         for (int i = 0; i < 54; i++) {
@@ -181,15 +159,40 @@ public class AdminGUI implements Listener {
         player.openInventory(stats);
     }
     
+    public void openDataManagement(Player player) {
+        Inventory gui = Bukkit.createInventory(null, 27, "§8§l✦ §6§lDATA MANAGEMENT §8§l✦");
+        
+        gui.setItem(11, createMenuItem(Material.REDSTONE, "§c§lRESET YOUR DATA",
+            "§7Reset your own magical fruit data",
+            "§7You will get a new spin on next join",
+            "§c§l⚠ WARNING: This cannot be undone!"));
+        
+        gui.setItem(13, createMenuItem(Material.PLAYER_HEAD, "§e§lRESET PLAYER DATA",
+            "§7Reset data for a specific player",
+            "§7They will get a new spin on next join",
+            "§c§l⚠ WARNING: This cannot be undone!"));
+        
+        gui.setItem(15, createMenuItem(Material.DRAGON_HEAD, "§4§lRESET ALL DATA",
+            "§7Reset data for ALL players",
+            "§7Everyone will get a new spin on next join",
+            "§c§l⚠ WARNING: This cannot be undone!"));
+        
+        ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK",
+            "§7Return to main dashboard");
+        gui.setItem(22, back);
+        
+        player.openInventory(gui);
+    }
+    
     private ItemStack createMenuItem(Material material, String name, String... lore) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text(name));
-        List<Component> loreList = new ArrayList<>();
+        meta.setDisplayName(name);
+        List<String> loreList = new ArrayList<>();
         for (String line : lore) {
-            loreList.add(Component.text(line));
+            loreList.add(line);
         }
-        meta.lore(loreList);
+        meta.setLore(loreList);
         item.setItemMeta(meta);
         return item;
     }
@@ -206,13 +209,6 @@ public class AdminGUI implements Listener {
             
             String name = net.md_5.bungee.api.ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
             handleMainDashboardClick(player, name);
-        } else if (title.equals("§8§l✦ §6§lDATA MANAGEMENT §8§l✦")) {
-            event.setCancelled(true);
-            ItemStack clicked = event.getCurrentItem();
-            if (clicked == null || clicked.getType() == Material.AIR) return;
-            
-            String name = net.md_5.bungee.api.ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
-            handleDataManagementClick(player, name);
         } else if (title.equals("§8§l✦ §6§lSETTINGS §8§l✦")) {
             event.setCancelled(true);
             ItemStack clicked = event.getCurrentItem();
@@ -229,6 +225,13 @@ public class AdminGUI implements Listener {
             if (name.equals("BACK")) {
                 openMainDashboard(player);
             }
+        } else if (title.equals("§8§l✦ §6§lDATA MANAGEMENT §8§l✦")) {
+            event.setCancelled(true);
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked == null || clicked.getType() == Material.AIR) return;
+            
+            String name = net.md_5.bungee.api.ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
+            handleDataManagementClick(player, name);
         }
     }
     
@@ -257,28 +260,6 @@ public class AdminGUI implements Listener {
                 plugin.getDataManager().loadSettings();
                 player.sendMessage("§aConfig reloaded successfully!");
                 player.closeInventory();
-                break;
-        }
-    }
-    
-    private void handleDataManagementClick(Player player, String name) {
-        switch (name) {
-            case "RESET YOUR DATA":
-                plugin.getDataManager().resetPlayerData(player);
-                player.sendMessage("§cYour magical fruit data has been reset!");
-                player.closeInventory();
-                break;
-            case "RESET PLAYER DATA":
-                player.sendMessage("§ePlease use: /magicfruits reset <player>");
-                player.closeInventory();
-                break;
-            case "RESET ALL DATA":
-                plugin.getDataManager().resetAllPlayersData();
-                player.sendMessage("§cAll player data has been reset!");
-                player.closeInventory();
-                break;
-            case "BACK":
-                openMainDashboard(player);
                 break;
         }
     }
@@ -321,6 +302,28 @@ public class AdminGUI implements Listener {
             player.sendMessage(plugin.getDataManager().isSoundsEnabled() ? 
                 "§aSounds have been §lENABLED" : "§cSounds have been §lDISABLED");
             openSettingsMenu(player);
+        }
+    }
+    
+    private void handleDataManagementClick(Player player, String name) {
+        switch (name) {
+            case "RESET YOUR DATA":
+                plugin.getDataManager().resetPlayerData(player);
+                player.sendMessage("§cYour magical fruit data has been reset!");
+                player.closeInventory();
+                break;
+            case "RESET PLAYER DATA":
+                player.sendMessage("§ePlease use: /magicfruits reset <player>");
+                player.closeInventory();
+                break;
+            case "RESET ALL DATA":
+                plugin.getDataManager().resetAllPlayersData();
+                player.sendMessage("§cAll player data has been reset!");
+                player.closeInventory();
+                break;
+            case "BACK":
+                openMainDashboard(player);
+                break;
         }
     }
     }
