@@ -37,17 +37,14 @@ public class GracePeriodManager {
         durationMinutes = minutes;
         remainingSeconds = minutes * 60;
         
-        // Update boss bar
         bossBar.setTitle("§a§l🛡️ GRACE PERIOD ACTIVE - " + formatTime(remainingSeconds) + " §a§l🛡️");
         bossBar.setColor(BarColor.GREEN);
         bossBar.setProgress(1.0);
         
-        // Show boss bar to all players
         for (Player player : Bukkit.getOnlinePlayers()) {
             bossBar.addPlayer(player);
         }
         
-        // Store which players had fruits before grace
         for (Player player : Bukkit.getOnlinePlayers()) {
             boolean hasFruit = false;
             for (org.bukkit.inventory.ItemStack item : player.getInventory().getContents()) {
@@ -59,7 +56,6 @@ public class GracePeriodManager {
             hadFruitsBeforeGrace.put(player.getUniqueId(), hasFruit);
         }
         
-        // Broadcast start message
         Bukkit.broadcastMessage("");
         Bukkit.broadcastMessage("§6§l╔══════════════════════════════════════════════════╗");
         Bukkit.broadcastMessage("§6§l║           §e§l✨ GRACE PERIOD STARTED! ✨           §6§l║");
@@ -70,13 +66,11 @@ public class GracePeriodManager {
         Bukkit.broadcastMessage("§6§l╚══════════════════════════════════════════════════╝");
         Bukkit.broadcastMessage("");
         
-        // Play sound
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.playSound(player.getLocation(), org.bukkit.Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.0f);
             player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
         }
         
-        // Start countdown
         startCountdown();
     }
     
@@ -88,17 +82,14 @@ public class GracePeriodManager {
         
         isActive = false;
         
-        // Cancel countdown task
         if (countdownTask != null) {
             countdownTask.cancel();
         }
         
-        // Update boss bar
         bossBar.setTitle("§c§l✨ GRACE PERIOD ENDED ✨");
         bossBar.setColor(BarColor.RED);
         bossBar.setProgress(1.0);
         
-        // Remove boss bar after 5 seconds
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -110,7 +101,6 @@ public class GracePeriodManager {
             }
         }.runTaskLater(plugin, 100L);
         
-        // Broadcast end message
         Bukkit.broadcastMessage("");
         Bukkit.broadcastMessage("§c§l╔══════════════════════════════════════════════════╗");
         Bukkit.broadcastMessage("§c§l║           §e§l✨ GRACE PERIOD ENDED! ✨           §c§l║");
@@ -120,7 +110,6 @@ public class GracePeriodManager {
         Bukkit.broadcastMessage("§c§l╚══════════════════════════════════════════════════╝");
         Bukkit.broadcastMessage("");
         
-        // Play sound
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_WITHER_DEATH, 1.0f, 0.8f);
         }
@@ -140,18 +129,15 @@ public class GracePeriodManager {
                 }
                 
                 if (seconds <= 0) {
-                    // Grace period ended automatically
                     stopGrace();
                     this.cancel();
                     return;
                 }
                 
-                // Update boss bar
                 double progress = (double) seconds / (durationMinutes * 60);
                 bossBar.setProgress(progress);
                 bossBar.setTitle("§a§l🛡️ GRACE PERIOD - " + formatTime(seconds) + " remaining §a§l🛡️");
                 
-                // Color change based on time remaining
                 if (seconds <= 60) {
                     bossBar.setColor(BarColor.RED);
                 } else if (seconds <= 180) {
@@ -160,7 +146,6 @@ public class GracePeriodManager {
                     bossBar.setColor(BarColor.GREEN);
                 }
                 
-                // Broadcast announcements at key times
                 if (seconds == 60) {
                     Bukkit.broadcastMessage("§e§l⚠ §f1 minute remaining in grace period! §e§l⚠");
                     for (Player player : Bukkit.getOnlinePlayers()) {
@@ -177,7 +162,6 @@ public class GracePeriodManager {
                         player.playSound(player.getLocation(), org.bukkit.Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 2.0f);
                     }
                 } else if (seconds <= 5 && seconds > 0) {
-                    // Final countdown
                     Bukkit.broadcastMessage("§c§l⚠ §f" + seconds + "... §c§l⚠");
                     for (Player player : Bukkit.getOnlinePlayers()) {
                         player.playSound(player.getLocation(), org.bukkit.Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 2.0f);
@@ -203,8 +187,6 @@ public class GracePeriodManager {
     
     public boolean shouldPreventDeathDrop(Player player) {
         if (!isActive) return false;
-        // During grace period, players who already had fruits still drop them
-        // New players during grace don't get fruits
         return hadFruitsBeforeGrace.getOrDefault(player.getUniqueId(), false);
     }
     
