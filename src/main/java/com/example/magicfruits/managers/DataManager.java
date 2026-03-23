@@ -71,14 +71,12 @@ public class DataManager {
     public void resetPlayerData(Player player) {
         UUID uuid = player.getUniqueId();
         
-        // Clear all fruits from inventory
         for (org.bukkit.inventory.ItemStack item : player.getInventory().getContents()) {
             if (item != null && FruitType.fromItem(item) != null) {
                 player.getInventory().remove(item);
             }
         }
         
-        // Mark player as reset
         resetPlayers.add(uuid);
         saveResetData();
         
@@ -111,7 +109,6 @@ public class DataManager {
         return resetPlayers.size();
     }
     
-    // Getters and Setters
     public boolean isFirstJoinReward() { return firstJoinReward; }
     public void setFirstJoinReward(boolean value) { this.firstJoinReward = value; saveSettings(); }
     
