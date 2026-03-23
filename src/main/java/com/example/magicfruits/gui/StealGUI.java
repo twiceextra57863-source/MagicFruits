@@ -2,7 +2,6 @@ package com.example.magicfruits.gui;
 
 import com.example.magicfruits.FruitType;
 import com.example.magicfruits.MagicFruits;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Particle;
@@ -35,7 +34,7 @@ public class StealGUI implements Listener {
         // Border
         ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
         ItemMeta borderMeta = border.getItemMeta();
-        borderMeta.displayName(Component.text(" "));
+        borderMeta.setDisplayName(" ");
         border.setItemMeta(borderMeta);
         
         for (int i = 0; i < 54; i++) {
@@ -89,12 +88,15 @@ public class StealGUI implements Listener {
         // Info item
         ItemStack info = new ItemStack(Material.BOOK);
         ItemMeta infoMeta = info.getItemMeta();
-        infoMeta.setDisplayName("§6§l✦ ABILITY STEALER ✦");
+        infoMeta.setDisplayName("§6§l✦ STEAL MECHANICS ✦");
         List<String> infoLore = new ArrayList<>();
-        infoLore.add("§7Steal a player's fruit ability!");
-        infoLore.add("§7The victim will be frozen for 5 seconds");
-        infoLore.add("§7You keep the ability for 20 seconds");
-        infoLore.add("§7Cooldown: 2 minutes");
+        infoLore.add("§8§m-----------------------------");
+        infoLore.add("§7• Steal any player's fruit ability");
+        infoLore.add("§7• Victim's ability goes on cooldown");
+        infoLore.add("§7• You keep the ability for §e20 seconds");
+        infoLore.add("§7• All nearby players §cfrozen §7for §e5 seconds");
+        infoLore.add("§7• §c2 minute §7cooldown on steal");
+        infoLore.add("§8§m-----------------------------");
         infoMeta.setLore(infoLore);
         info.setItemMeta(infoMeta);
         gui.setItem(49, info);
@@ -111,7 +113,7 @@ public class StealGUI implements Listener {
         ItemStack clicked = event.getCurrentItem();
         if (clicked == null || clicked.getType() != Material.PLAYER_HEAD) return;
         
-        String targetName = net.md_5.bungee.api.ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
+        String targetName = org.bukkit.ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
         Player target = Bukkit.getPlayer(targetName);
         if (target != null) {
             thief.closeInventory();
@@ -159,9 +161,10 @@ public class StealGUI implements Listener {
             }
         }
         
-        // Put target's ability on cooldown using the stolen fruit type
-        plugin.getCooldownManager().setCooldown(targetId, targetFruit);
-        target.sendMessage("§c§l⚠ §e" + thief.getName() + " §chas stolen your ability! It is now on cooldown!");
+        // Put target's ability on cooldown for both primary and secondary
+        plugin.getCooldownManager().setCooldown(targetId, targetFruit, "primary");
+        plugin.getCooldownManager().setCooldown(targetId, targetFruit, "secondary");
+        target.sendMessage("§c§l⚠ §e" + thief.getName() + " §chas stolen your ability! Both abilities are now on cooldown!");
         
         // Give thief the stolen ability for 20 seconds
         plugin.setStolenAbility(thiefId, targetFruit.getAbility(), 20);
