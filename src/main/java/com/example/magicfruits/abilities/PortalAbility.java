@@ -7,9 +7,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
@@ -108,8 +108,8 @@ public class PortalAbility implements Ability, Listener {
             Location secondPortal = targetBlock.getLocation().add(0.5, 1, 0.5);
             
             // Create Doctor Strange style portal effects
-            createDoctorStrangePortal(data.firstPortal);
-            createDoctorStrangePortal(secondPortal);
+            createDoctorStrangePortal(data.firstPortal, plugin);
+            createDoctorStrangePortal(secondPortal, plugin);
             
             // Store connected portals
             activePortals.put(uuid, new PortalData(data.firstPortal, secondPortal, 
@@ -209,8 +209,7 @@ public class PortalAbility implements Ability, Listener {
         }.runTaskTimer(plugin, 0L, 1L);
     }
     
-    private void createDoctorStrangePortal(Location loc) {
-        MagicFruits plugin = MagicFruits.getInstance();
+    private void createDoctorStrangePortal(Location loc, MagicFruits plugin) {
         World world = loc.getWorld();
         
         // Create Doctor Strange style portal with multiple rings
@@ -265,14 +264,14 @@ public class PortalAbility implements Ability, Listener {
                     }
                 }
                 
-                // Central glow
+                // Central glow - using PORTAL instead of SPELL_WITCH
                 for (int i = 0; i < 20; i++) {
                     double angle = Math.random() * 2 * Math.PI;
                     double radius = Math.random() * 1.5;
                     double x = Math.cos(angle) * radius;
                     double z = Math.sin(angle) * radius;
                     if (plugin.getDataManager().isParticlesEnabled()) {
-                        world.spawnParticle(Particle.SPELL_WITCH, loc.clone().add(x, 1 + Math.random(), z), 0, 0, 0, 0, 1);
+                        world.spawnParticle(Particle.PORTAL, loc.clone().add(x, 1 + Math.random(), z), 0, 0, 0, 0, 1);
                     }
                 }
                 
@@ -353,7 +352,7 @@ public class PortalAbility implements Ability, Listener {
                     }
                 }
                 
-                // Rising particles
+                // Rising particles - using PORTAL instead of SPELL_WITCH
                 for (int i = 0; i < 30; i++) {
                     double angle = Math.random() * 2 * Math.PI;
                     double radiusR = Math.random() * 2;
@@ -362,7 +361,7 @@ public class PortalAbility implements Ability, Listener {
                     double y = Math.random() * height;
                     
                     if (plugin.getDataManager().isParticlesEnabled()) {
-                        world.spawnParticle(Particle.SPELL_WITCH, loc.clone().add(x, y, z), 0, 0, 0, 0, 1);
+                        world.spawnParticle(Particle.PORTAL, loc.clone().add(x, y, z), 0, 0, 0, 0, 1);
                     }
                 }
                 
@@ -386,7 +385,7 @@ public class PortalAbility implements Ability, Listener {
                 SummonPortalData data = entry.getValue();
                 if (clickedLoc.distance(data.portalLocation) < 1.5 && data.owner.equals(player)) {
                     event.setCancelled(true);
-                    openSummonGUI(player, data.portalLocation);
+                    openSummonGUI(player);
                     break;
                 }
             }
@@ -416,7 +415,7 @@ public class PortalAbility implements Ability, Listener {
         }
     }
     
-    private void openSummonGUI(Player player, Location portalLoc) {
+    private void openSummonGUI(Player player) {
         Inventory gui = Bukkit.createInventory(null, 54, "§5§l🌀 SUMMON PLAYER §5§l🌀");
         
         // Add decorative border
@@ -471,30 +470,6 @@ public class PortalAbility implements Ability, Listener {
         gui.setItem(49, info);
         
         player.openInventory(gui);
-        
-        // Handle GUI click
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (player.getOpenInventory().getTitle().equals("§5§l🌀 SUMMON PLAYER §5§l🌀")) {
-                    handleSummonGUI(player, portalLoc);
-                }
-            }
-        }.runTaskLater(MagicFruits.getInstance(), 1L);
-    }
-    
-    private void handleSummonGUI(Player player, Location portalLoc) {
-        MagicFruits plugin = MagicFruits.getInstance();
-        
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!player.getOpenInventory().getTitle().equals("§5§l🌀 SUMMON PLAYER §5§l🌀")) {
-                    this.cancel();
-                    return;
-                }
-            }
-        }.runTaskTimer(plugin, 0L, 1L);
     }
     
     @EventHandler
@@ -510,20 +485,22 @@ public class PortalAbility implements Ability, Listener {
         Player target = Bukkit.getServer().getPlayer(targetName);
         
         if (target != null) {
+            MagicFruits plugin = MagicFruits.getInstance();
+            
             // Create portal effect at summon location
             Location summonLoc = player.getLocation();
-            createSummonEffect(summonLoc, MagicFruits.getInstance());
+            createSummonEffect(summonLoc, plugin);
             
             // Teleport target to player
             target.teleport(summonLoc);
             
             // Effects
-            if (MagicFruits.getInstance().getDataManager().isParticlesEnabled()) {
+            if (plugin.getDataManager().isParticlesEnabled()) {
                 target.getWorld().spawnParticle(Particle.PORTAL, target.getLocation(), 100, 1, 1, 1, 0.5);
                 target.getWorld().spawnParticle(Particle.DRAGON_BREATH, target.getLocation(), 50, 1, 1, 1, 0.3);
             }
             
-            if (MagicFruits.getInstance().getDataManager().isSoundsEnabled()) {
+            if (plugin.getDataManager().isSoundsEnabled()) {
                 target.playSound(target.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
                 player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
             }
