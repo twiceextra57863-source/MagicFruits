@@ -19,6 +19,7 @@ public class SpinManager {
     private final MagicFruits plugin;
     private final Map<UUID, Boolean> spinning = new HashMap<>();
     private final Map<UUID, Integer> spinTaskIds = new HashMap<>();
+    private final Map<UUID, Inventory> spinGUIs = new HashMap<>();
     
     public SpinManager(MagicFruits plugin) {
         this.plugin = plugin;
@@ -53,7 +54,9 @@ public class SpinManager {
         int duration = plugin.getDataManager().getSpinDuration() * 20;
         
         // Show spin GUI with all fruits
-        showSpinGUI(player, fruits);
+        Inventory gui = createSpinGUI(fruits);
+        spinGUIs.put(player.getUniqueId(), gui);
+        player.openInventory(gui);
         
         player.sendTitle("§6§l✨ FRUIT SPIN! ✨", "§eGet ready to spin!", 10, 20, 10);
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.0f);
@@ -86,9 +89,8 @@ public class SpinManager {
                     player.sendMessage("§a§l✦ You received: §6" + selected.getDisplayName());
                     
                     // Close spin GUI
-                    if (player.getOpenInventory().getTitle().equals("§6§l✦ FRUIT SPIN ✦")) {
-                        player.closeInventory();
-                    }
+                    player.closeInventory();
+                    spinGUIs.remove(player.getUniqueId());
                     
                     spinning.put(player.getUniqueId(), false);
                     this.cancel();
@@ -109,7 +111,7 @@ public class SpinManager {
         }.runTaskTimer(plugin, 0L, 1L);
     }
     
-    private void showSpinGUI(Player player, List<FruitType> fruits) {
+    private Inventory createSpinGUI(List<FruitType> fruits) {
         Inventory gui = Bukkit.createInventory(null, 54, "§6§l✦ FRUIT SPIN ✦");
         
         // Add all fruits as items
@@ -138,12 +140,12 @@ public class SpinManager {
             }
         }
         
-        player.openInventory(gui);
+        return gui;
     }
     
     private void updateSpinGUI(Player player, List<FruitType> fruits, FruitType current) {
-        Inventory gui = player.getOpenInventory().getTopInventory();
-        if (!gui.getTitle().equals("§6§l✦ FRUIT SPIN ✦")) return;
+        Inventory gui = spinGUIs.get(player.getUniqueId());
+        if (gui == null) return;
         
         int slot = 10;
         for (FruitType fruit : fruits) {
@@ -166,6 +168,8 @@ public class SpinManager {
             slot++;
             if ((slot + 1) % 9 == 0) slot += 2;
         }
+        
+        player.updateInventory();
     }
     
     public int getActiveSpinCount() {
