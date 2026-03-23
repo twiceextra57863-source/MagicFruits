@@ -16,11 +16,11 @@ public enum FruitType {
                        1001,
                        new CycloneFuryAbility()),
     
-    CRYSTAL_FRUIT("§b§l💎 §3§lCRYSTAL FRUIT §b§l💎",
-                 "§7§oPure crystalline power",
-                 Material.NETHER_STAR,
-                 1002,
-                 new CrystalAbility()),
+    TSUNAMI_FRUIT("§b§l🌊 §3§lTSUNAMI FRUIT §b§l🌊",
+                  "§7§oCommand the mighty oceans",
+                  Material.NETHER_STAR,
+                  1002,
+                  new TsunamiAbility()),
     
     DRACULA_BITES_FRUIT("§4§l🦇 §c§lDRACULA BITES §4§l🦇",
                         "§7§oEmbrace the vampire's curse",
