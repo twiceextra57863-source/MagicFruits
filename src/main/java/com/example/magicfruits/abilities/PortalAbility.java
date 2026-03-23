@@ -12,14 +12,27 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Vector;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PortalAbility implements Ability, Listener {
     
-    private final Map<UUID, PortalData> activePortals = new HashMap<>();
-    private final Map<UUID, Long> summonCooldown = new HashMap<>();
-    private final Map<UUID, PortalCreationData> creatingPortal = new HashMap<>();
+    private final Map<UUID, PortalCreationData> creatingPortal = new ConcurrentHashMap<>();
+    private final Map<UUID, PortalData> activePortals = new ConcurrentHashMap<>();
+    private final Map<UUID, SummonPortalData> activeSummonPortals = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> summonCooldown = new ConcurrentHashMap<>();
+    
+    private static class PortalCreationData {
+        Location firstPortal;
+        long creationTime;
+        
+        PortalCreationData(Location loc, long time) {
+            this.firstPortal = loc;
+            this.creationTime = time;
+        }
+    }
     
     private static class PortalData {
         Location portal1;
@@ -33,162 +46,368 @@ public class PortalAbility implements Ability, Listener {
         }
     }
     
-    private static class PortalCreationData {
-        Location firstPortal;
-        long creationTime;
+    private static class SummonPortalData {
+        Location portalLocation;
+        Player owner;
+        long expiryTime;
         
-        PortalCreationData(Location loc, long time) {
-            this.firstPortal = loc;
-            this.creationTime = time;
+        SummonPortalData(Location loc, Player owner, long expiry) {
+            this.portalLocation = loc;
+            this.owner = owner;
+            this.expiryTime = expiry;
         }
     }
     
     public PortalAbility() {
+        MagicFruits.getInstance().getServer().getPluginManager().registerEvents(this, MagicFruits.getInstance());
+        
+        // Cleanup task for expired portals
         new BukkitRunnable() {
             @Override
             public void run() {
                 long now = System.currentTimeMillis();
                 activePortals.entrySet().removeIf(entry -> entry.getValue().expiryTime <= now);
+                activeSummonPortals.entrySet().removeIf(entry -> entry.getValue().expiryTime <= now);
+                creatingPortal.entrySet().removeIf(entry -> entry.getValue().creationTime + 15000 <= now);
             }
-        }.runTaskTimer(MagicFruits.getInstance(), 1200L, 1200L);
+        }.runTaskTimer(MagicFruits.getInstance(), 20L, 20L);
     }
     
     @Override
     public void execute(Player player, boolean isSecondary) {
+        MagicFruits plugin = MagicFruits.getInstance();
+        
         if (isSecondary) {
-            executeSummonPortal(player);
+            executeSummonPortal(player, plugin);
         } else {
-            executeTeleportPortal(player);
+            executeTeleportPortal(player, plugin);
         }
     }
     
-    private void executeTeleportPortal(Player player) {
+    private void executeTeleportPortal(Player player, MagicFruits plugin) {
         UUID uuid = player.getUniqueId();
         
+        // Check if player is already creating a portal
         if (creatingPortal.containsKey(uuid)) {
             PortalCreationData data = creatingPortal.get(uuid);
             
-            if (System.currentTimeMillis() - data.creationTime > 20000) {
-                player.sendMessage("§c§l⚠ §fTime expired! Start again!");
+            // Check if 15 seconds have passed
+            if (System.currentTimeMillis() - data.creationTime > 15000) {
+                player.sendMessage("§c§l⚠ §fTime expired! Start again.");
                 creatingPortal.remove(uuid);
                 return;
             }
             
-            Block targetBlock = player.getTargetBlock(null, 50);
+            // Get target block for second portal
+            Block targetBlock = player.getTargetBlock(null, 30);
             if (targetBlock == null) {
                 player.sendMessage("§c§l⚠ §fNo block in sight!");
                 return;
             }
+            
             Location secondPortal = targetBlock.getLocation().add(0.5, 1, 0.5);
             
-            createPortalVisual(data.firstPortal);
-            createPortalVisual(secondPortal);
+            // Create Doctor Strange style portal effects
+            createDoctorStrangePortal(data.firstPortal);
+            createDoctorStrangePortal(secondPortal);
             
+            // Store connected portals
             activePortals.put(uuid, new PortalData(data.firstPortal, secondPortal, 
                 System.currentTimeMillis() + 60000));
             
+            // Play epic sound
+            if (plugin.getDataManager().isSoundsEnabled()) {
+                player.getWorld().playSound(data.firstPortal, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 0.8f);
+                player.getWorld().playSound(secondPortal, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 0.8f);
+                player.playSound(player.getLocation(), Sound.ENTITY_ILLUSIONER_CAST_SPELL, 1.0f, 1.2f);
+            }
+            
             player.sendTitle("§5§l✨ PORTALS CONNECTED! ✨", 
-                "§eYou can now teleport between them!", 10, 40, 10);
-            player.playSound(player.getLocation(), Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 1.0f);
+                "§eStep through to teleport between dimensions!", 10, 50, 10);
             player.sendMessage("§5§l🔮 §fPortals connected! They will last for 60 seconds!");
             
             creatingPortal.remove(uuid);
             return;
         }
         
-        Block targetBlock = player.getTargetBlock(null, 50);
+        // First portal placement
+        Block targetBlock = player.getTargetBlock(null, 30);
         if (targetBlock == null) {
             player.sendMessage("§c§l⚠ §fNo block in sight!");
             return;
         }
-        Location firstPortal = targetBlock.getLocation().add(0.5, 1, 0.5);
-        createPortalVisual(firstPortal);
         
+        Location firstPortal = targetBlock.getLocation().add(0.5, 1, 0.5);
+        
+        // Create first portal effect
+        createPortalEffect(firstPortal, plugin);
+        
+        // Store creation data
         creatingPortal.put(uuid, new PortalCreationData(firstPortal, System.currentTimeMillis()));
-        player.sendTitle("§5§l🔮 FIRST PORTAL PLACED!", 
-            "§ePlace second portal within 20 seconds!", 10, 40, 10);
-        player.playSound(player.getLocation(), Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 0.8f);
-        player.sendMessage("§5§l🔮 §fFirst portal placed! You have 20 seconds to place the second portal!");
+        
+        // Play sound
+        if (plugin.getDataManager().isSoundsEnabled()) {
+            player.getWorld().playSound(firstPortal, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 1.0f);
+        }
+        
+        player.sendTitle("§5§l🔮 FIRST PORTAL PLACED! 🔮", 
+            "§ePlace second portal within 15 seconds!", 10, 40, 10);
+        player.sendMessage("§5§l🔮 §fFirst portal placed! You have 15 seconds to place the second portal!");
+        
+        // Show countdown in action bar
+        new BukkitRunnable() {
+            int seconds = 15;
+            
+            @Override
+            public void run() {
+                if (!creatingPortal.containsKey(uuid)) {
+                    this.cancel();
+                    return;
+                }
+                
+                if (seconds <= 0) {
+                    creatingPortal.remove(uuid);
+                    player.sendMessage("§c§l⚠ §fTime expired! Portal creation cancelled.");
+                    this.cancel();
+                    return;
+                }
+                
+                player.sendActionBar("§5§l⏳ Time to place second portal: §e" + seconds + "s");
+                seconds--;
+            }
+        }.runTaskTimer(plugin, 0L, 20L);
     }
     
-    private void executeSummonPortal(Player player) {
+    private void createPortalEffect(Location loc, MagicFruits plugin) {
+        World world = loc.getWorld();
+        
+        // Create rotating ring effect
+        new BukkitRunnable() {
+            int ticks = 0;
+            
+            @Override
+            public void run() {
+                if (ticks >= 40) {
+                    this.cancel();
+                    return;
+                }
+                
+                double radius = 1.2;
+                for (int i = 0; i < 360; i += 15) {
+                    double rad = Math.toRadians(i + ticks * 10);
+                    double x = Math.cos(rad) * radius;
+                    double z = Math.sin(rad) * radius;
+                    
+                    if (plugin.getDataManager().isParticlesEnabled()) {
+                        world.spawnParticle(Particle.PORTAL, loc.clone().add(x, 0.5, z), 0, 0, 0, 0, 1);
+                        world.spawnParticle(Particle.END_ROD, loc.clone().add(x, 1.2, z), 0, 0, 0, 0, 1);
+                    }
+                }
+                
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+    
+    private void createDoctorStrangePortal(Location loc) {
+        MagicFruits plugin = MagicFruits.getInstance();
+        World world = loc.getWorld();
+        
+        // Create Doctor Strange style portal with multiple rings
+        new BukkitRunnable() {
+            int ticks = 0;
+            
+            @Override
+            public void run() {
+                if (ticks >= 60) {
+                    this.cancel();
+                    return;
+                }
+                
+                // Outer ring
+                double outerRadius = 2.0;
+                // Middle ring
+                double middleRadius = 1.5;
+                // Inner ring
+                double innerRadius = 1.0;
+                
+                // Create multiple rotating rings
+                for (int i = 0; i < 360; i += 10) {
+                    double rad = Math.toRadians(i + ticks * 15);
+                    
+                    // Outer ring - orange/gold
+                    double x1 = Math.cos(rad) * outerRadius;
+                    double z1 = Math.sin(rad) * outerRadius;
+                    if (plugin.getDataManager().isParticlesEnabled()) {
+                        world.spawnParticle(Particle.DUST, loc.clone().add(x1, 0.5, z1), 0, 0, 0, 0, 
+                            new Particle.DustOptions(Color.fromRGB(0xFF6600), 0.8f));
+                        world.spawnParticle(Particle.FLAME, loc.clone().add(x1, 1, z1), 0, 0, 0, 0, 0.5);
+                    }
+                    
+                    // Middle ring - orange/red
+                    double rad2 = Math.toRadians(i + ticks * 12);
+                    double x2 = Math.cos(rad2) * middleRadius;
+                    double z2 = Math.sin(rad2) * middleRadius;
+                    if (plugin.getDataManager().isParticlesEnabled()) {
+                        world.spawnParticle(Particle.DUST, loc.clone().add(x2, 1, z2), 0, 0, 0, 0,
+                            new Particle.DustOptions(Color.fromRGB(0xFF3300), 0.7f));
+                        world.spawnParticle(Particle.PORTAL, loc.clone().add(x2, 1.2, z2), 0, 0, 0, 0, 1);
+                    }
+                    
+                    // Inner ring - golden
+                    double rad3 = Math.toRadians(i + ticks * 10);
+                    double x3 = Math.cos(rad3) * innerRadius;
+                    double z3 = Math.sin(rad3) * innerRadius;
+                    if (plugin.getDataManager().isParticlesEnabled()) {
+                        world.spawnParticle(Particle.END_ROD, loc.clone().add(x3, 1.5, z3), 0, 0, 0, 0, 1);
+                        world.spawnParticle(Particle.DUST, loc.clone().add(x3, 0.8, z3), 0, 0, 0, 0,
+                            new Particle.DustOptions(Color.fromRGB(0xFFAA44), 0.6f));
+                    }
+                }
+                
+                // Central glow
+                for (int i = 0; i < 20; i++) {
+                    double angle = Math.random() * 2 * Math.PI;
+                    double radius = Math.random() * 1.5;
+                    double x = Math.cos(angle) * radius;
+                    double z = Math.sin(angle) * radius;
+                    if (plugin.getDataManager().isParticlesEnabled()) {
+                        world.spawnParticle(Particle.SPELL_WITCH, loc.clone().add(x, 1 + Math.random(), z), 0, 0, 0, 0, 1);
+                    }
+                }
+                
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+    
+    private void executeSummonPortal(Player player, MagicFruits plugin) {
         UUID uuid = player.getUniqueId();
         
+        // Check cooldown (20 minutes)
         long lastUse = summonCooldown.getOrDefault(uuid, 0L);
         if (System.currentTimeMillis() - lastUse < 1200000) {
             long remaining = (1200000 - (System.currentTimeMillis() - lastUse)) / 1000;
             long minutes = remaining / 60;
             long seconds = remaining % 60;
-            player.sendMessage("§c§l⚠ §fSummon portal on cooldown! §7(" + minutes + "m " + seconds + "s remaining)");
+            player.sendMessage("§c§l⚠ §fSummon Portal on cooldown! §7(" + minutes + "m " + seconds + "s remaining)");
             return;
         }
         
-        Block targetBlock = player.getTargetBlock(null, 50);
+        // Get target block where player is looking
+        Block targetBlock = player.getTargetBlock(null, 30);
         if (targetBlock == null) {
             player.sendMessage("§c§l⚠ §fNo block in sight!");
             return;
         }
         
         Location portalLoc = targetBlock.getLocation().add(0.5, 1, 0.5);
-        createSummonPortalVisual(portalLoc);
         
-        activePortals.put(uuid, new PortalData(portalLoc, null, System.currentTimeMillis() + 120000));
+        // Create unique summon portal effect
+        createSummonPortalEffect(portalLoc, plugin);
+        
+        // Store summon portal
+        activeSummonPortals.put(uuid, new SummonPortalData(portalLoc, player, System.currentTimeMillis() + 120000));
         summonCooldown.put(uuid, System.currentTimeMillis());
         
-        player.sendTitle("§5§l🌀 SUMMON PORTAL CREATED!", 
-            "§eLeft click the portal to summon any player!", 10, 40, 10);
-        player.playSound(player.getLocation(), Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 1.2f);
-        player.sendMessage("§5§l🌀 §fSummon portal created! Click it to summon players!");
+        // Play sound
+        if (plugin.getDataManager().isSoundsEnabled()) {
+            player.getWorld().playSound(portalLoc, Sound.ENTITY_ELDER_GUARDIAN_CURSE, 1.0f, 0.6f);
+            player.getWorld().playSound(portalLoc, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 1.2f);
+        }
         
-        new PortalClickListener(portalLoc, player);
+        player.sendTitle("§5§l🌀 SUMMON PORTAL CREATED! 🌀", 
+            "§eLeft click the portal to summon any player!", 10, 40, 10);
+        player.sendMessage("§5§l🌀 §fSummon portal created! Click it to summon players!");
+        player.sendMessage("§eYou have 2 minutes to use this portal!");
     }
     
-    private void createPortalVisual(Location loc) {
+    private void createSummonPortalEffect(Location loc, MagicFruits plugin) {
         World world = loc.getWorld();
-        for (int i = 0; i < 100; i++) {
-            double radius = 1.5;
-            double angle = Math.random() * 2 * Math.PI;
-            double x = Math.cos(angle) * radius;
-            double z = Math.sin(angle) * radius;
-            world.spawnParticle(Particle.PORTAL, loc.clone().add(x, Math.random() * 2, z), 0, 0, 0, 0, 1);
-        }
-        for (int y = 0; y < 3; y++) {
-            world.spawnParticle(Particle.END_ROD, loc.clone().add(0, y, 0), 5, 0.2, 0.2, 0.2, 0.1);
-        }
-        world.playSound(loc, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 1.0f);
-    }
-    
-    private void createSummonPortalVisual(Location loc) {
-        World world = loc.getWorld();
-        for (int i = 0; i < 360; i += 10) {
-            double rad = Math.toRadians(i);
-            double radius = 2;
-            double x = Math.cos(rad) * radius;
-            double z = Math.sin(rad) * radius;
-            world.spawnParticle(Particle.DRAGON_BREATH, loc.clone().add(x, 0, z), 0, 0, 0, 0, 1);
-            world.spawnParticle(Particle.PORTAL, loc.clone().add(x, 1, z), 0, 0, 0, 0, 1);
-            world.spawnParticle(Particle.END_ROD, loc.clone().add(x, 2, z), 0, 0, 0, 0, 1);
-        }
-        for (int y = 0; y < 4; y++) {
-            world.spawnParticle(Particle.DRAGON_BREATH, loc.clone().add(0, y, 0), 10, 0.2, 0.2, 0.2, 0.1);
-        }
-        world.playSound(loc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.5f);
+        
+        // Create unique purple-black vortex effect
+        new BukkitRunnable() {
+            int ticks = 0;
+            
+            @Override
+            public void run() {
+                if (ticks >= 80) {
+                    this.cancel();
+                    return;
+                }
+                
+                double radius = 2.0;
+                double height = 2.5;
+                
+                // Spiral effect
+                for (int i = 0; i < 360; i += 10) {
+                    double rad = Math.toRadians(i + ticks * 8);
+                    double x = Math.cos(rad) * radius;
+                    double z = Math.sin(rad) * radius;
+                    double y = Math.sin(rad * 2) * 0.5 + 1;
+                    
+                    if (plugin.getDataManager().isParticlesEnabled()) {
+                        world.spawnParticle(Particle.DUST, loc.clone().add(x, y, z), 0, 0, 0, 0,
+                            new Particle.DustOptions(Color.fromRGB(0x6600CC), 0.8f));
+                        world.spawnParticle(Particle.PORTAL, loc.clone().add(x, y + 0.5, z), 0, 0, 0, 0, 1);
+                    }
+                }
+                
+                // Rising particles
+                for (int i = 0; i < 30; i++) {
+                    double angle = Math.random() * 2 * Math.PI;
+                    double radiusR = Math.random() * 2;
+                    double x = Math.cos(angle) * radiusR;
+                    double z = Math.sin(angle) * radiusR;
+                    double y = Math.random() * height;
+                    
+                    if (plugin.getDataManager().isParticlesEnabled()) {
+                        world.spawnParticle(Particle.SPELL_WITCH, loc.clone().add(x, y, z), 0, 0, 0, 0, 1);
+                    }
+                }
+                
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
     }
     
     @EventHandler
-    public void onPlayerMove(PlayerMoveEvent event) {
+    public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
-        Location to = event.getTo();
-        if (to == null) return;
         
-        for (Map.Entry<UUID, PortalData> entry : activePortals.entrySet()) {
-            PortalData data = entry.getValue();
-            if (data.portal1 != null && data.portal2 != null) {
-                if (to.distance(data.portal1) < 1.5) {
+        if (event.getAction() == org.bukkit.event.block.Action.LEFT_CLICK_BLOCK) {
+            Block clickedBlock = event.getClickedBlock();
+            if (clickedBlock == null) return;
+            
+            Location clickedLoc = clickedBlock.getLocation().add(0.5, 1, 0.5);
+            
+            // Check for summon portal
+            for (Map.Entry<UUID, SummonPortalData> entry : activeSummonPortals.entrySet()) {
+                SummonPortalData data = entry.getValue();
+                if (clickedLoc.distance(data.portalLocation) < 1.5 && data.owner.equals(player)) {
+                    event.setCancelled(true);
+                    openSummonGUI(player, data.portalLocation);
+                    break;
+                }
+            }
+        }
+        
+        // Also check for teleport portals (right click to teleport)
+        if (event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) {
+            Block clickedBlock = event.getClickedBlock();
+            if (clickedBlock == null) return;
+            
+            Location clickedLoc = clickedBlock.getLocation().add(0.5, 1, 0.5);
+            
+            for (Map.Entry<UUID, PortalData> entry : activePortals.entrySet()) {
+                PortalData data = entry.getValue();
+                if (clickedLoc.distance(data.portal1) < 1.5) {
+                    event.setCancelled(true);
                     player.teleport(data.portal2);
                     player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
                     break;
-                } else if (to.distance(data.portal2) < 1.5) {
+                } else if (clickedLoc.distance(data.portal2) < 1.5) {
+                    event.setCancelled(true);
                     player.teleport(data.portal1);
                     player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
                     break;
@@ -197,110 +416,166 @@ public class PortalAbility implements Ability, Listener {
         }
     }
     
-    private class PortalClickListener implements Listener {
-        private final Location portalLoc;
-        private final Player owner;
+    private void openSummonGUI(Player player, Location portalLoc) {
+        Inventory gui = Bukkit.createInventory(null, 54, "§5§l🌀 SUMMON PLAYER §5§l🌀");
         
-        PortalClickListener(Location loc, Player owner) {
-            this.portalLoc = loc;
-            this.owner = owner;
-            MagicFruits.getInstance().getServer().getPluginManager().registerEvents(this, MagicFruits.getInstance());
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    org.bukkit.event.HandlerList.unregisterAll(PortalClickListener.this);
-                }
-            }.runTaskLater(MagicFruits.getInstance(), 2400L);
+        // Add decorative border
+        ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+        ItemMeta borderMeta = border.getItemMeta();
+        borderMeta.setDisplayName(" ");
+        border.setItemMeta(borderMeta);
+        
+        for (int i = 0; i < 54; i++) {
+            if (i < 9 || i >= 45 || i % 9 == 0 || i % 9 == 8) {
+                gui.setItem(i, border);
+            }
         }
         
-        @EventHandler
-        public void onPlayerInteract(PlayerInteractEvent event) {
-            Player player = event.getPlayer();
-            if (event.getClickedBlock() == null) return;
+        // Add all online players
+        int slot = 19;
+        for (Player target : Bukkit.getOnlinePlayers()) {
+            if (target.equals(player)) continue;
             
-            Location clickedLoc = event.getClickedBlock().getLocation().add(0.5, 1, 0.5);
-            if (clickedLoc.distance(portalLoc) < 1.5 && event.getAction() == org.bukkit.event.block.Action.LEFT_CLICK_BLOCK) {
-                event.setCancelled(true);
-                
-                if (!player.equals(owner)) {
-                    player.sendMessage("§c§l⚠ §fThis portal belongs to " + owner.getName() + "!");
+            ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+            SkullMeta meta = (SkullMeta) head.getItemMeta();
+            meta.setOwningPlayer(target);
+            meta.setDisplayName("§e§l" + target.getName());
+            
+            List<String> lore = new ArrayList<>();
+            lore.add("§8§m-----------------------------");
+            lore.add("§7Click to summon §e" + target.getName());
+            lore.add("§7to your location through the portal!");
+            lore.add("§8§m-----------------------------");
+            meta.setLore(lore);
+            
+            head.setItemMeta(meta);
+            gui.setItem(slot, head);
+            slot++;
+            if ((slot + 1) % 9 == 0) slot += 2;
+            if (slot > 43) break;
+        }
+        
+        // Add info item
+        ItemStack info = new ItemStack(Material.ENDER_EYE);
+        ItemMeta infoMeta = info.getItemMeta();
+        infoMeta.setDisplayName("§5§l🌀 SUMMON PORTAL 🌀");
+        List<String> infoLore = new ArrayList<>();
+        infoLore.add("§8§m-----------------------------");
+        infoLore.add("§7Click any player to summon them");
+        infoLore.add("§7through the portal to your location!");
+        infoLore.add("§7Portal lasts for §e2 minutes");
+        infoLore.add("§7Cooldown: §c20 minutes");
+        infoLore.add("§8§m-----------------------------");
+        infoMeta.setLore(infoLore);
+        info.setItemMeta(infoMeta);
+        gui.setItem(49, info);
+        
+        player.openInventory(gui);
+        
+        // Handle GUI click
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (player.getOpenInventory().getTitle().equals("§5§l🌀 SUMMON PLAYER §5§l🌀")) {
+                    handleSummonGUI(player, portalLoc);
+                }
+            }
+        }.runTaskLater(MagicFruits.getInstance(), 1L);
+    }
+    
+    private void handleSummonGUI(Player player, Location portalLoc) {
+        MagicFruits plugin = MagicFruits.getInstance();
+        
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.getOpenInventory().getTitle().equals("§5§l🌀 SUMMON PLAYER §5§l🌀")) {
+                    this.cancel();
                     return;
                 }
-                
-                Inventory gui = Bukkit.createInventory(null, 54, "§5§l🌀 SUMMON PLAYER §5§l🌀");
-                
-                int slot = 19;
-                for (Player target : Bukkit.getOnlinePlayers()) {
-                    if (target.equals(owner)) continue;
-                    
-                    ItemStack head = new ItemStack(Material.PLAYER_HEAD);
-                    SkullMeta meta = (SkullMeta) head.getItemMeta();
-                    meta.setOwningPlayer(target);
-                    meta.setDisplayName("§e§l" + target.getName());
-                    List<String> lore = new ArrayList<>();
-                    lore.add("§7Click to summon §e" + target.getName());
-                    lore.add("§7to your location!");
-                    meta.setLore(lore);
-                    head.setItemMeta(meta);
-                    gui.setItem(slot, head);
-                    slot++;
-                    if ((slot + 1) % 9 == 0) slot += 2;
-                    if (slot > 43) break;
-                }
-                
-                owner.openInventory(gui);
-                new SummonGUIHandler(owner, portalLoc);
             }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+    
+    @EventHandler
+    public void onInventoryClick(org.bukkit.event.inventory.InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (!event.getView().getTitle().equals("§5§l🌀 SUMMON PLAYER §5§l🌀")) return;
+        
+        event.setCancelled(true);
+        ItemStack clicked = event.getCurrentItem();
+        if (clicked == null || clicked.getType() != Material.PLAYER_HEAD) return;
+        
+        String targetName = org.bukkit.ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
+        Player target = Bukkit.getServer().getPlayer(targetName);
+        
+        if (target != null) {
+            // Create portal effect at summon location
+            Location summonLoc = player.getLocation();
+            createSummonEffect(summonLoc, MagicFruits.getInstance());
+            
+            // Teleport target to player
+            target.teleport(summonLoc);
+            
+            // Effects
+            if (MagicFruits.getInstance().getDataManager().isParticlesEnabled()) {
+                target.getWorld().spawnParticle(Particle.PORTAL, target.getLocation(), 100, 1, 1, 1, 0.5);
+                target.getWorld().spawnParticle(Particle.DRAGON_BREATH, target.getLocation(), 50, 1, 1, 1, 0.3);
+            }
+            
+            if (MagicFruits.getInstance().getDataManager().isSoundsEnabled()) {
+                target.playSound(target.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
+                player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
+            }
+            
+            target.sendTitle("§5§l🌀 SUMMONED! 🌀", 
+                "§eYou have been summoned by " + player.getName(), 10, 40, 10);
+            player.sendMessage("§a§l✓ §fYou have summoned §e" + target.getName() + "§f to your location!");
+            
+            player.closeInventory();
+            
+            // Remove the summon portal after use
+            activeSummonPortals.remove(player.getUniqueId());
         }
     }
     
-    private class SummonGUIHandler implements Listener {
-        private final Player owner;
-        private final Location portalLoc;
+    private void createSummonEffect(Location loc, MagicFruits plugin) {
+        World world = loc.getWorld();
         
-        SummonGUIHandler(Player owner, Location portalLoc) {
-            this.owner = owner;
-            this.portalLoc = portalLoc;
-            MagicFruits.getInstance().getServer().getPluginManager().registerEvents(this, MagicFruits.getInstance());
-        }
-        
-        @EventHandler
-        public void onInventoryClick(org.bukkit.event.inventory.InventoryClickEvent event) {
-            if (!(event.getWhoClicked() instanceof Player)) return;
-            if (!event.getView().getTitle().equals("§5§l🌀 SUMMON PLAYER §5§l🌀")) return;
-            if (!event.getWhoClicked().equals(owner)) return;
+        new BukkitRunnable() {
+            int ticks = 0;
             
-            event.setCancelled(true);
-            ItemStack clicked = event.getCurrentItem();
-            if (clicked == null || clicked.getType() != Material.PLAYER_HEAD) return;
-            
-            String targetName = ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
-            Player target = Bukkit.getPlayer(targetName);
-            
-            if (target != null) {
-                target.teleport(owner.getLocation());
-                target.sendTitle("§5§l🌀 SUMMONED! §5§l🌀", 
-                    "§eYou have been summoned by " + owner.getName(), 10, 40, 10);
-                target.playSound(target.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
-                target.spawnParticle(Particle.PORTAL, target.getLocation(), 100, 1, 1, 1, 0.5);
+            @Override
+            public void run() {
+                if (ticks >= 30) {
+                    this.cancel();
+                    return;
+                }
                 
-                owner.sendMessage("§a§l✓ §fYou have summoned §e" + target.getName());
-                owner.playSound(owner.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
+                double radius = 2.0;
+                for (int i = 0; i < 360; i += 15) {
+                    double rad = Math.toRadians(i + ticks * 15);
+                    double x = Math.cos(rad) * radius;
+                    double z = Math.sin(rad) * radius;
+                    
+                    if (plugin.getDataManager().isParticlesEnabled()) {
+                        world.spawnParticle(Particle.PORTAL, loc.clone().add(x, 0.5, z), 0, 0, 0, 0, 1);
+                        world.spawnParticle(Particle.END_ROD, loc.clone().add(x, 1.2, z), 0, 0, 0, 0, 1);
+                    }
+                }
                 
-                activePortals.remove(owner.getUniqueId());
-                owner.closeInventory();
-                org.bukkit.event.HandlerList.unregisterAll(this);
+                ticks++;
             }
-        }
+        }.runTaskTimer(plugin, 0L, 1L);
     }
     
     @Override
     public String getPrimaryDescription() {
-        return "Create teleport portals (2 portals, 20s to connect, 60s duration)";
+        return "Create teleport portals (2 portals, 15s to connect, 60s duration)";
     }
     
     @Override
     public String getSecondaryDescription() {
         return "Create summon portal (20 min cooldown, click to summon any player)";
     }
-    }
+}
