@@ -179,7 +179,6 @@ public class ThiefAbility implements Ability, Listener {
             lore.add("§8§m-----------------------------");
             
             if (targetFruit != null) {
-                boolean onCooldown = victimCooldown.containsKey(target.getUniqueId());
                 boolean recentlyStolen = victimCooldown.containsKey(target.getUniqueId()) && 
                     victimCooldown.get(target.getUniqueId()) > System.currentTimeMillis();
                 
@@ -243,8 +242,6 @@ public class ThiefAbility implements Ability, Listener {
     }
     
     private void executeStealAbility(Player thief) {
-        // This method is called from the GUI click handler
-        // Actual steal logic is in the click handler
         thief.sendMessage("§eUse the GUI to steal abilities!");
     }
     
@@ -390,16 +387,13 @@ public class ThiefAbility implements Ability, Listener {
     }
     
     private void freezePlayer(Player player, int seconds) {
-        // Store original location
         Location originalLoc = player.getLocation();
         frozenPlayers.put(player.getUniqueId(), new FreezeData(originalLoc, System.currentTimeMillis(), seconds));
         
-        // Apply freeze effects
         player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, seconds * 20, 255, false, false));
         player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, seconds * 20, 128, false, false));
         player.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, seconds * 20, 1, false, false));
         
-        // Create ice cage particles
         MagicFruits plugin = MagicFruits.getInstance();
         if (plugin.getDataManager().isParticlesEnabled()) {
             new BukkitRunnable() {
@@ -450,7 +444,6 @@ public class ThiefAbility implements Ability, Listener {
                     
                     if (plugin.getDataManager().isParticlesEnabled()) {
                         vortexLoc.getWorld().spawnParticle(Particle.PORTAL, vortexLoc, 0, 0, 0, 0, 1);
-                        vortexLoc.getWorld().spawnParticle(Particle.SPELL_WITCH, vortexLoc, 0, 0, 0, 0, 1);
                         vortexLoc.getWorld().spawnParticle(Particle.END_ROD, vortexLoc, 0, 0, 0, 0, 1);
                     }
                 }
@@ -485,7 +478,7 @@ public class ThiefAbility implements Ability, Listener {
             double radius = 2;
             double x = Math.cos(rad) * radius;
             double z = Math.sin(rad) * radius;
-            thief.getWorld().spawnParticle(Particle.SPELL_WITCH, thief.getLocation().clone().add(x, 1, z), 0, 0, 0, 0, 1);
+            thief.getWorld().spawnParticle(Particle.PORTAL, thief.getLocation().clone().add(x, 1, z), 0, 0, 0, 0, 1);
             thief.getWorld().spawnParticle(Particle.END_ROD, thief.getLocation().clone().add(x, 1.5, z), 0, 0, 0, 0, 1);
         }
         
@@ -495,7 +488,7 @@ public class ThiefAbility implements Ability, Listener {
             double radius = 1.5;
             double x = Math.cos(rad) * radius;
             double z = Math.sin(rad) * radius;
-            target.getWorld().spawnParticle(Particle.SPELL_WITCH, target.getLocation().clone().add(x, 1, z), 0, 0, 0, 0, 1);
+            target.getWorld().spawnParticle(Particle.PORTAL, target.getLocation().clone().add(x, 1, z), 0, 0, 0, 0, 1);
             target.getWorld().spawnParticle(Particle.CLOUD, target.getLocation().clone().add(x, 1.5, z), 0, 0, 0, 0, 1);
         }
     }
