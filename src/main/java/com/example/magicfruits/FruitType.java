@@ -52,11 +52,11 @@ public enum FruitType {
                 1007,
                 new ThroneAbility()),
     
-    ICE_FRUIT("§b§l❄️ §f§lICE FRUIT §b§l❄️",
-             "§7§oFreeze your enemies solid",
-             Material.NETHER_STAR,
-             1008,
-             new IceAbility()),
+    WIND_MONSTER_FRUIT("§f§l🌪️ §7§lWIND MONSTER §f§l🌪️",
+                       "§7§oBecome the fury of the winds",
+                       Material.NETHER_STAR,
+                       1008,
+                       new WindMonsterAbility()),
     
     STAR_FRUIT("§d§l⭐ §5§lSTAR FRUIT §d§l⭐",
               "§7§oHarness cosmic energy",
