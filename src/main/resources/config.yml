@@ -4,10 +4,10 @@ plugin:
   name: MagicFruits
 
 settings:
-  # First join reward - new players get a fruit spin
+  # First join reward - new players get a fruit spin (Admin can toggle from GUI)
   first-join-reward: true
   
-  # Drop on death - fruits drop when player dies
+  # Drop on death - fruits drop when player dies (Admin can toggle from GUI)
   drop-on-death: true
   
   # Cooldown time in seconds for fruit abilities
@@ -33,3 +33,4 @@ messages:
   first-join-spin: "§a§l✨ Welcome! Starting your magical fruit spin! ✨"
   data-reset: "§c§l⚠ §fYour magical fruit data has been reset by an admin!"
   data-reset-all: "§c§l⚠ §6MagicFruits §f- All player data has been reset!"
+  grace-protected: "§a§l🛡️ §fYour fruits were protected during grace period!"
