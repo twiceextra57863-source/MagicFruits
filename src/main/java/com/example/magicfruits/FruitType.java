@@ -10,11 +10,11 @@ import java.util.List;
 
 public enum FruitType {
     
-    BUDDHA_FRUIT("§e§l✨ §6§lBUDDHA FRUIT §e§l✨", 
-                "§7§oEnlightened by ancient wisdom",
-                Material.NETHER_STAR,
-                1001,
-                new BuddhaAbility()),
+    CYCLONE_FURY_FRUIT("§b§l🌀 §3§lCYCLONE FURY §b§l🌀",
+                       "§7§oCommand the raging winds",
+                       Material.NETHER_STAR,
+                       1001,
+                       new CycloneFuryAbility()),
     
     CRYSTAL_FRUIT("§b§l💎 §3§lCRYSTAL FRUIT §b§l💎",
                  "§7§oPure crystalline power",
@@ -74,13 +74,7 @@ public enum FruitType {
                 "§7§oMaster of dimensions",
                 Material.NETHER_STAR,
                 1011,
-                new PortalAbility()),
-    
-    CYCLONE_FURY_FRUIT("§b§l🌀 §3§lCYCLONE FURY §b§l🌀",
-                       "§7§oCommand the raging winds",
-                       Material.NETHER_STAR,
-                       1012,
-                       new CycloneFuryAbility());
+                new PortalAbility());
     
     private final String displayName;
     private final String description;
