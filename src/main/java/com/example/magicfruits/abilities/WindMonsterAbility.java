@@ -19,21 +19,18 @@ public class WindMonsterAbility implements Ability, Listener {
     private final Map<UUID, Long> windCooldown = new ConcurrentHashMap<>();
     private final Map<UUID, Long> stormCooldown = new ConcurrentHashMap<>();
     private final Map<UUID, ActiveForm> activeForms = new ConcurrentHashMap<>();
-    private final Map<UUID, Integer> attackCounter = new ConcurrentHashMap<>();
     
     private static class ActiveForm {
         Player player;
         String type; // "wind" or "storm"
         long expiryTime;
         int ticks;
-        List<Location> fistPositions;
         
         ActiveForm(Player player, String type, long expiry) {
             this.player = player;
             this.type = type;
             this.expiryTime = expiry;
             this.ticks = 0;
-            this.fistPositions = new ArrayList<>();
         }
     }
     
@@ -105,8 +102,8 @@ public class WindMonsterAbility implements Ability, Listener {
         ActiveForm form = new ActiveForm(player, type, System.currentTimeMillis() + 10000);
         activeForms.put(uuid, form);
         
-        // Apply effects
-        player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 200, 2, false, false));
+        // Apply effects - using RESISTANCE instead of DAMAGE_RESISTANCE
+        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 200, 2, false, false));
         player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 200, 1, false, false));
         
         // Play epic sounds
@@ -172,7 +169,7 @@ public class WindMonsterAbility implements Ability, Listener {
                     if (type.equals("wind")) {
                         if (plugin.getDataManager().isParticlesEnabled()) {
                             loc.getWorld().spawnParticle(Particle.CLOUD, loc.clone().add(x - 0.8, 1 + yOffset, z), 0, 0, 0, 0, 1);
-                            loc.getWorld().spawnParticle(Particle.SPELL_WITCH, loc.clone().add(x - 0.5, 1.2 + yOffset, z), 0, 0, 0, 0, 1);
+                            loc.getWorld().spawnParticle(Particle.END_ROD, loc.clone().add(x - 0.5, 1.2 + yOffset, z), 0, 0, 0, 0, 1);
                         }
                     } else {
                         if (plugin.getDataManager().isParticlesEnabled()) {
@@ -248,7 +245,6 @@ public class WindMonsterAbility implements Ability, Listener {
             if (entity instanceof LivingEntity && !entity.equals(player)) {
                 LivingEntity target = (LivingEntity) entity;
                 
-                double distance = target.getLocation().distance(playerLoc);
                 double damage = type.equals("wind") ? 6 : 8;
                 double knockback = type.equals("wind") ? 1.5 : 2.0;
                 
@@ -307,7 +303,7 @@ public class WindMonsterAbility implements Ability, Listener {
                         if (type.equals("wind")) {
                             if (plugin.getDataManager().isParticlesEnabled()) {
                                 fistLoc.getWorld().spawnParticle(Particle.CLOUD, fistLoc, 3, 0.2, 0.2, 0.2, 0.05);
-                                fistLoc.getWorld().spawnParticle(Particle.SPELL_WITCH, fistLoc, 2, 0.1, 0.1, 0.1, 0.05);
+                                fistLoc.getWorld().spawnParticle(Particle.END_ROD, fistLoc, 2, 0.1, 0.1, 0.1, 0.05);
                             }
                         } else {
                             if (plugin.getDataManager().isParticlesEnabled()) {
@@ -383,7 +379,7 @@ public class WindMonsterAbility implements Ability, Listener {
         
         if (form != null) {
             // Remove potion effects
-            player.removePotionEffect(PotionEffectType.DAMAGE_RESISTANCE);
+            player.removePotionEffect(PotionEffectType.RESISTANCE);
             player.removePotionEffect(PotionEffectType.STRENGTH);
             
             // Final explosion effect
@@ -415,4 +411,4 @@ public class WindMonsterAbility implements Ability, Listener {
     public String getSecondaryDescription() {
         return "Storm Monster (10s, floating, electric ground slam, 60s cooldown)";
     }
-                            }
+                                    }
