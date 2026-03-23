@@ -64,7 +64,7 @@ public final class MagicFruits extends JavaPlugin implements Listener {
         getLogger().info("§aMagicFruits plugin has been enabled!");
         getLogger().info("§eFirst Join Reward: " + (dataManager.isFirstJoinReward() ? "§aENABLED" : "§cDISABLED"));
         getLogger().info("§eDrop on Death: " + (dataManager.isDropOnDeath() ? "§aENABLED" : "§cDISABLED"));
-        getLogger().info("§dAll fruits loaded successfully!");
+        getLogger().info("§dAll " + FruitType.values().length + " fruits loaded successfully!");
     }
     
     @Override
@@ -133,6 +133,7 @@ public final class MagicFruits extends JavaPlugin implements Listener {
             if (fruit != null) {
                 event.setCancelled(true);
                 
+                // Check stolen ability
                 if (stolenAbilities.containsKey(player.getUniqueId())) {
                     Ability stolen = stolenAbilities.get(player.getUniqueId());
                     if (stolenAbilityExpiry.getOrDefault(player.getUniqueId(), 0L) > System.currentTimeMillis()) {
@@ -144,15 +145,20 @@ public final class MagicFruits extends JavaPlugin implements Listener {
                     }
                 }
                 
-                if (cooldownManager.isOnCooldown(player.getUniqueId(), fruit)) {
-                    cooldownManager.showCooldownMessage(player, fruit);
+                // Determine which ability is being used
+                String abilityType = player.isSneaking() ? "secondary" : "primary";
+                
+                // Check cooldown for this specific ability
+                if (cooldownManager.isOnCooldown(player.getUniqueId(), fruit, abilityType)) {
+                    cooldownManager.showCooldownMessage(player, fruit, abilityType);
                     cooldownManager.showCooldownOnXPBar(player, 
-                        cooldownManager.getRemainingSeconds(player.getUniqueId(), fruit), fruit);
+                        cooldownManager.getRemainingSeconds(player.getUniqueId(), fruit, abilityType), fruit, abilityType);
                     return;
                 }
                 
+                // Execute ability
                 fruit.getAbility().execute(player, player.isSneaking());
-                cooldownManager.startCooldown(player.getUniqueId(), fruit);
+                cooldownManager.startCooldown(player.getUniqueId(), fruit, abilityType);
             }
         }
     }
