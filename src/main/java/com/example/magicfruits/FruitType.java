@@ -28,11 +28,11 @@ public enum FruitType {
                         1003,
                         new DraculaBitesAbility()),
     
-    PHOENIX_FRUIT("§6§l🔥 §e§lPHOENIX FRUIT §6§l🔥",
-                 "§7§oReborn from eternal flames",
-                 Material.NETHER_STAR,
-                 1004,
-                 new PhoenixAbility()),
+    NATURE_HAMMER_FRUIT("§2§l🌳 §a§lNATURE HAMMER §2§l🌳",
+                        "§7§oWield the power of ancient oak",
+                        Material.NETHER_STAR,
+                        1004,
+                        new NatureHammerAbility()),
     
     VOID_FRUIT("§5§l🌑 §8§lVOID FRUIT §5§l🌑",
               "§7§oEmbrace the darkness within",
