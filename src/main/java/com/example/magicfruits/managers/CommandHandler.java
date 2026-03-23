@@ -58,8 +58,11 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
             case "reset":
                 handleResetCommand(sender, args);
                 break;
+            case "grace":
+                handleGraceCommand(sender, args);
+                break;
             default:
-                sender.sendMessage("§cUnknown command! Use: /magicfruits [spin|give|dashboard|reload|reset]");
+                sender.sendMessage("§cUnknown command! Use: /magicfruits [spin|give|dashboard|reload|reset|grace]");
                 break;
         }
         
@@ -135,10 +138,50 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         }
     }
     
+    private void handleGraceCommand(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("magicfruits.admin")) {
+            sender.sendMessage("§cYou don't have permission!");
+            return;
+        }
+        
+        if (args.length < 2) {
+            sender.sendMessage("§cUsage: /magicfruits grace <start|stop> [minutes]");
+            return;
+        }
+        
+        if (args[1].equalsIgnoreCase("start")) {
+            if (args.length < 3) {
+                sender.sendMessage("§cUsage: /magicfruits grace start <minutes>");
+                return;
+            }
+            
+            try {
+                int minutes = Integer.parseInt(args[2]);
+                if (minutes <= 0) {
+                    sender.sendMessage("§cMinutes must be positive!");
+                    return;
+                }
+                if (minutes > 60) {
+                    sender.sendMessage("§cMaximum grace period is 60 minutes!");
+                    return;
+                }
+                plugin.getGracePeriodManager().startGrace(minutes);
+                sender.sendMessage("§aGrace period started for " + minutes + " minutes!");
+            } catch (NumberFormatException e) {
+                sender.sendMessage("§cInvalid number!");
+            }
+        } else if (args[1].equalsIgnoreCase("stop")) {
+            plugin.getGracePeriodManager().stopGrace();
+            sender.sendMessage("§aGrace period stopped!");
+        } else {
+            sender.sendMessage("§cUsage: /magicfruits grace <start|stop> [minutes]");
+        }
+    }
+    
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("spin", "give", "dashboard", "reload", "reset");
+            return Arrays.asList("spin", "give", "dashboard", "reload", "reset", "grace");
         } else if (args.length == 2 && args[0].equalsIgnoreCase("give")) {
             return null;
         } else if (args.length == 3 && args[0].equalsIgnoreCase("give")) {
@@ -153,6 +196,10 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
             suggestions.add("all");
             suggestions.addAll(Bukkit.getOnlinePlayers().stream().map(Player::getName).toList());
             return suggestions;
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("grace")) {
+            return Arrays.asList("start", "stop");
+        } else if (args.length == 3 && args[0].equalsIgnoreCase("grace") && args[1].equalsIgnoreCase("start")) {
+            return Arrays.asList("5", "10", "15", "30", "60");
         }
         return Collections.emptyList();
     }
