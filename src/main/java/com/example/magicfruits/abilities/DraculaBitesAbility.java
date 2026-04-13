@@ -2,78 +2,71 @@ package com.example.magicfruits.abilities;
 
 import com.example.magicfruits.MagicFruits;
 import org.bukkit.*;
-import org.bukkit.block.Block;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class PortalAbility implements Ability, Listener {
+public class DraculaBitesAbility implements Ability, Listener {
     
-    private final Map<UUID, PortalCreationData> creatingPortal = new ConcurrentHashMap<>();
-    private final Map<UUID, PortalData> activePortals = new ConcurrentHashMap<>();
-    private final Map<UUID, SummonPortalData> activeSummonPortals = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> summonCooldown = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> teleportCooldown = new ConcurrentHashMap<>();
+    private final Map<UUID, PhaseData> activePhase = new ConcurrentHashMap<>();
+    private final Map<UUID, BatData> activeBat = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> hitCounter = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> phaseCooldown = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> batCooldown = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> biteCooldown = new ConcurrentHashMap<>();
+    private final Map<UUID, Boolean> isRiding = new ConcurrentHashMap<>();
     
-    private static class PortalCreationData {
-        Location firstPortal;
-        long creationTime;
-        boolean isWaiting;
-        int taskId;
-        
-        PortalCreationData(Location loc, long time) {
-            this.firstPortal = loc;
-            this.creationTime = time;
-            this.isWaiting = true;
-            this.taskId = -1;
-        }
-    }
-    
-    private static class PortalData {
-        Location portal1;
-        Location portal2;
+    private static class PhaseData {
         long expiryTime;
         
-        PortalData(Location p1, Location p2, long expiry) {
-            this.portal1 = p1;
-            this.portal2 = p2;
+        PhaseData(long expiry) {
             this.expiryTime = expiry;
         }
     }
     
-    private static class SummonPortalData {
-        Location portalLocation;
-        Player owner;
+    private static class BatData {
+        Bat bat;
+        Player rider;
         long expiryTime;
         
-        SummonPortalData(Location loc, Player owner, long expiry) {
-            this.portalLocation = loc;
-            this.owner = owner;
+        BatData(Bat bat, Player rider, long expiry) {
+            this.bat = bat;
+            this.rider = rider;
             this.expiryTime = expiry;
         }
     }
     
-    public PortalAbility() {
+    public DraculaBitesAbility() {
         MagicFruits.getInstance().getServer().getPluginManager().registerEvents(this, MagicFruits.getInstance());
         
         new BukkitRunnable() {
             @Override
             public void run() {
                 long now = System.currentTimeMillis();
-                activePortals.entrySet().removeIf(entry -> entry.getValue().expiryTime <= now);
-                activeSummonPortals.entrySet().removeIf(entry -> entry.getValue().expiryTime <= now);
-                teleportCooldown.entrySet().removeIf(entry -> entry.getValue() <= now);
+                activePhase.entrySet().removeIf(entry -> entry.getValue().expiryTime <= now);
+                
+                for (Map.Entry<UUID, BatData> entry : activeBat.entrySet()) {
+                    if (entry.getValue().expiryTime <= now) {
+                        Bat bat = entry.getValue().bat;
+                        if (bat != null && bat.isValid()) {
+                            bat.eject();
+                            bat.remove();
+                        }
+                        activeBat.remove(entry.getKey());
+                        isRiding.remove(entry.getKey());
+                    }
+                }
             }
         }.runTaskTimer(MagicFruits.getInstance(), 20L, 20L);
     }
@@ -83,384 +76,300 @@ public class PortalAbility implements Ability, Listener {
         MagicFruits plugin = MagicFruits.getInstance();
         
         if (isSecondary) {
-            executeSummonPortal(player, plugin);
+            executeBatSummon(player, plugin);
         } else {
-            executeTeleportPortal(player, plugin);
+            executeBloodPhase(player, plugin);
         }
     }
     
-    private void executeTeleportPortal(Player player, MagicFruits plugin) {
+    private void executeBloodPhase(Player player, MagicFruits plugin) {
         UUID uuid = player.getUniqueId();
         
-        // Case 1: Player is waiting to place second portal (NO COOLDOWN CHECK HERE)
-        if (creatingPortal.containsKey(uuid) && creatingPortal.get(uuid).isWaiting) {
-            PortalCreationData data = creatingPortal.get(uuid);
-            
-            // Check if 15 seconds have passed
-            if (System.currentTimeMillis() - data.creationTime > 15000) {
-                creatingPortal.remove(uuid);
-                player.sendMessage("§c§l⚠ §fTime expired! Start again.");
-                return;
-            }
-            
-            // Get second portal location
-            Block targetBlock = player.getTargetBlock(null, 30);
-            if (targetBlock == null) {
-                player.sendMessage("§c§l⚠ §fNo block in sight!");
-                return;
-            }
-            
-            Location secondPortal = targetBlock.getLocation().add(0.5, 1, 0.5);
-            
-            // Create portal effects
-            createPortalRings(data.firstPortal, plugin);
-            createPortalRings(secondPortal, plugin);
-            
-            // Store connected portals
-            activePortals.put(uuid, new PortalData(data.firstPortal, secondPortal, 
-                System.currentTimeMillis() + 60000));
-            
-            // Remove creation data
-            creatingPortal.remove(uuid);
-            
-            // Play sounds
-            if (plugin.getDataManager().isSoundsEnabled()) {
-                player.getWorld().playSound(data.firstPortal, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 0.8f);
-                player.getWorld().playSound(secondPortal, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 0.8f);
-                player.playSound(player.getLocation(), Sound.ENTITY_ILLUSIONER_CAST_SPELL, 1.0f, 1.2f);
-            }
-            
-            player.sendTitle("§5§l✨ PORTALS CONNECTED! ✨", 
-                "§eWalk through to teleport!", 10, 50, 10);
-            player.sendMessage("§5§l🔮 §fPortals connected! They will last for 60 seconds!");
-            
-            // SET COOLDOWN ONLY AFTER SECOND PORTAL IS PLACED
-            teleportCooldown.put(uuid, System.currentTimeMillis() + 60000);
+        long lastUse = phaseCooldown.getOrDefault(uuid, 0L);
+        if (System.currentTimeMillis() - lastUse < 45000) {
+            long remaining = (45000 - (System.currentTimeMillis() - lastUse)) / 1000;
+            player.sendMessage("§c§l⚠ §fBlood Phase on cooldown! §7(" + remaining + "s)");
             return;
         }
         
-        // Case 2: Check if ability is on cooldown (after 2 portals are placed)
-        long lastUse = teleportCooldown.getOrDefault(uuid, 0L);
-        if (System.currentTimeMillis() - lastUse < 60000 && teleportCooldown.containsKey(uuid)) {
-            long remaining = (60000 - (System.currentTimeMillis() - lastUse)) / 1000;
-            player.sendMessage("§c§l⚠ §fPortal ability on cooldown! §7(" + remaining + " seconds remaining)");
-            return;
-        }
+        activePhase.put(uuid, new PhaseData(System.currentTimeMillis() + 15000));
+        phaseCooldown.put(uuid, System.currentTimeMillis());
+        hitCounter.put(uuid, 0);
         
-        // Case 3: First portal placement - NO COOLDOWN CHECK AT ALL
-        Block targetBlock = player.getTargetBlock(null, 30);
-        if (targetBlock == null) {
-            player.sendMessage("§c§l⚠ §fNo block in sight!");
-            return;
-        }
-        
-        Location firstPortal = targetBlock.getLocation().add(0.5, 1, 0.5);
-        
-        // Create portal effect
-        createPortalRings(firstPortal, plugin);
-        
-        // Store creation data
-        PortalCreationData data = new PortalCreationData(firstPortal, System.currentTimeMillis());
-        creatingPortal.put(uuid, data);
-        
-        // Start countdown timer
-        data.taskId = new BukkitRunnable() {
-            int seconds = 15;
-            
-            @Override
-            public void run() {
-                PortalCreationData current = creatingPortal.get(uuid);
-                if (current == null || !current.isWaiting) {
-                    this.cancel();
-                    return;
+        if (plugin.getDataManager().isParticlesEnabled()) {
+            new BukkitRunnable() {
+                int ticks = 0;
+                @Override
+                public void run() {
+                    if (!activePhase.containsKey(uuid)) {
+                        this.cancel();
+                        return;
+                    }
+                    if (ticks >= 150) {
+                        this.cancel();
+                        return;
+                    }
+                    for (int i = 0; i < 20; i++) {
+                        double angle = Math.random() * 2 * Math.PI;
+                        double radius = 1.5;
+                        double x = Math.cos(angle) * radius;
+                        double z = Math.sin(angle) * radius;
+                        player.getWorld().spawnParticle(Particle.DUST, player.getLocation().clone().add(x, 1 + Math.random(), z), 0, 0, 0, 0,
+                            new Particle.DustOptions(Color.fromRGB(0x8B0000), 0.8f));
+                    }
+                    ticks++;
                 }
-                
-                if (seconds <= 0) {
-                    current.isWaiting = false;
-                    creatingPortal.remove(uuid);
-                    player.sendMessage("§c§l⚠ §fTime expired! Portal creation cancelled.");
-                    player.sendTitle("§c§l⚠ TIME EXPIRED! ⚠", 
-                        "§eYou took too long!", 10, 30, 10);
-                    this.cancel();
-                    return;
-                }
-                
-                player.sendActionBar("§5§l⏳ Place second portal: §e" + seconds + "s remaining");
-                seconds--;
-            }
-        }.runTaskTimer(plugin, 0L, 20L).getTaskId();
+            }.runTaskTimer(plugin, 0L, 2L);
+        }
         
-        // Play sound
         if (plugin.getDataManager().isSoundsEnabled()) {
-            player.getWorld().playSound(firstPortal, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 1.0f);
+            player.playSound(player.getLocation(), Sound.ENTITY_WITHER_AMBIENT, 1.0f, 0.5f);
         }
         
-        player.sendTitle("§5§l🔮 FIRST PORTAL PLACED! 🔮", 
-            "§eRight click again within 15 seconds!", 10, 40, 10);
-        player.sendMessage("§5§l🔮 §fFirst portal placed! You have 15 seconds to place the second!");
+        player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 300, 1));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 300, 1));
+        
+        player.sendTitle("§4§l🩸 BLOOD PHASE! 🩸", "§eEvery 3rd hit heals you!", 10, 40, 10);
+        player.sendMessage("§4§l🩸 §fBlood Phase active for 15 seconds!");
     }
     
-    private void createPortalRings(Location center, MagicFruits plugin) {
-        World world = center.getWorld();
+    private void executeBatSummon(Player player, MagicFruits plugin) {
+        UUID uuid = player.getUniqueId();
         
+        long lastUse = batCooldown.getOrDefault(uuid, 0L);
+        if (System.currentTimeMillis() - lastUse < 60000) {
+            long remaining = (60000 - (System.currentTimeMillis() - lastUse)) / 1000;
+            player.sendMessage("§c§l⚠ §fBat Summon on cooldown! §7(" + remaining + "s)");
+            return;
+        }
+        
+        // Remove existing bat
+        if (activeBat.containsKey(uuid)) {
+            Bat oldBat = activeBat.get(uuid).bat;
+            if (oldBat != null && oldBat.isValid()) {
+                oldBat.eject();
+                oldBat.remove();
+            }
+            activeBat.remove(uuid);
+            isRiding.remove(uuid);
+        }
+        
+        // Summon bat
+        Location spawnLoc = player.getLocation().add(0, 1, 0);
+        Bat bat = (Bat) player.getWorld().spawnEntity(spawnLoc, EntityType.BAT);
+        bat.setAI(false);
+        bat.setSilent(true);
+        bat.setInvulnerable(true);
+        bat.setGravity(false);
+        
+        activeBat.put(uuid, new BatData(bat, player, System.currentTimeMillis() + 20000));
+        batCooldown.put(uuid, System.currentTimeMillis());
+        
+        // Mount player on bat
+        bat.addPassenger(player);
+        isRiding.put(uuid, true);
+        
+        // Start bat flight control
+        startBatFlightControl(player, bat, plugin);
+        
+        if (plugin.getDataManager().isParticlesEnabled()) {
+            for (int i = 0; i < 30; i++) {
+                player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation(), 0, 0, 0, 0, 1);
+            }
+        }
+        
+        if (plugin.getDataManager().isSoundsEnabled()) {
+            player.playSound(player.getLocation(), Sound.ENTITY_BAT_TAKEOFF, 1.0f, 1.0f);
+        }
+        
+        player.sendTitle("§8§l🦇 BAT RIDE! 🦇", "§eUse WASD to fly, Left Click to bite!", 10, 40, 10);
+        player.sendMessage("§8§l🦇 §fYou are riding a bat for 20 seconds!");
+        player.sendMessage("§eCrouch to dismount | Crouch again to remount | Left Click to bite");
+        
+        // Auto dismount after 20 seconds
         new BukkitRunnable() {
-            int ticks = 0;
-            
             @Override
             public void run() {
-                if (ticks >= 60) {
+                if (activeBat.containsKey(uuid)) {
+                    BatData data = activeBat.get(uuid);
+                    if (data.bat != null && data.bat.isValid()) {
+                        data.bat.eject();
+                        data.bat.remove();
+                    }
+                    activeBat.remove(uuid);
+                    isRiding.remove(uuid);
+                    player.sendMessage("§c§l⚠ §fYour bat has flown away!");
+                    player.playSound(player.getLocation(), Sound.ENTITY_BAT_DEATH, 1.0f, 1.0f);
+                }
+            }
+        }.runTaskLater(plugin, 400L);
+    }
+    
+    @EventHandler
+    public void onPlayerToggleSneak(PlayerToggleSneakEvent event) {
+        Player player = event.getPlayer();
+        UUID uuid = player.getUniqueId();
+        
+        // Crouch to toggle mount/dismount
+        if (event.isSneaking() && activeBat.containsKey(uuid)) {
+            BatData data = activeBat.get(uuid);
+            if (data != null && data.bat != null && data.bat.isValid()) {
+                if (isRiding.getOrDefault(uuid, false)) {
+                    // Dismount
+                    data.bat.eject();
+                    isRiding.put(uuid, false);
+                    player.sendMessage("§8§l🦇 §fYou dismounted the bat!");
+                    player.playSound(player.getLocation(), Sound.ENTITY_BAT_HURT, 1.0f, 0.8f);
+                } else {
+                    // Mount
+                    data.bat.addPassenger(player);
+                    isRiding.put(uuid, true);
+                    player.sendMessage("§8§l🦇 §fYou mounted the bat again!");
+                    player.playSound(player.getLocation(), Sound.ENTITY_BAT_TAKEOFF, 1.0f, 1.0f);
+                }
+            }
+        }
+    }
+    
+    private void startBatFlightControl(Player player, Bat bat, MagicFruits plugin) {
+        UUID uuid = player.getUniqueId();
+        
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                BatData data = activeBat.get(uuid);
+                if (data == null || data.bat == null || !data.bat.isValid() || !player.isOnline()) {
                     this.cancel();
                     return;
                 }
                 
-                double radius = 1.8;
-                for (int i = 0; i < 360; i += 15) {
-                    double theta = Math.toRadians(i + ticks * 12);
-                    double x = Math.cos(theta) * radius;
-                    double z = Math.sin(theta) * radius;
-                    double y = 1.0 + Math.sin(theta * 2) * 0.3;
-                    
-                    if (plugin.getDataManager().isParticlesEnabled()) {
-                        world.spawnParticle(Particle.DUST, center.clone().add(x, y, z), 0, 0, 0, 0,
-                            new Particle.DustOptions(Color.fromRGB(0xFF6600), 0.7f));
-                        world.spawnParticle(Particle.PORTAL, center.clone().add(x, y + 0.2, z), 0, 0, 0, 0, 1);
-                    }
+                // Only control if riding
+                if (!isRiding.getOrDefault(uuid, false)) {
+                    return;
                 }
                 
-                double radius2 = 1.2;
-                for (int i = 0; i < 360; i += 15) {
-                    double theta = Math.toRadians(i - ticks * 10);
-                    double x = Math.cos(theta) * radius2;
-                    double z = Math.sin(theta) * radius2;
-                    double y = 1.2 + Math.cos(theta * 2) * 0.2;
-                    
-                    if (plugin.getDataManager().isParticlesEnabled()) {
-                        world.spawnParticle(Particle.END_ROD, center.clone().add(x, y, z), 0, 0, 0, 0, 1);
-                    }
+                // Get player's input
+                boolean forward = player.isSprinting();      // W key
+                float yaw = player.getLocation().getYaw();
+                
+                double speed = 0.6;
+                Vector velocity = new Vector();
+                
+                if (forward) {
+                    velocity.setX(-Math.sin(Math.toRadians(yaw)) * speed);
+                    velocity.setZ(Math.cos(Math.toRadians(yaw)) * speed);
                 }
                 
-                ticks++;
+                float pitch = player.getLocation().getPitch();
+                velocity.setY(-Math.sin(Math.toRadians(pitch)) * 0.5);
+                
+                if (velocity.length() > 0) {
+                    data.bat.setVelocity(velocity);
+                } else {
+                    data.bat.setVelocity(new Vector(0, 0, 0));
+                }
+                
+                if (velocity.getX() != 0 || velocity.getZ() != 0) {
+                    float targetYaw = (float) Math.toDegrees(Math.atan2(-velocity.getX(), velocity.getZ()));
+                    data.bat.setRotation(targetYaw, pitch);
+                }
+                
+                if (plugin.getDataManager().isParticlesEnabled()) {
+                    for (int i = 0; i < 2; i++) {
+                        double offsetX = Math.sin(Math.toRadians(yaw)) * 0.5;
+                        double offsetZ = -Math.cos(Math.toRadians(yaw)) * 0.5;
+                        player.getWorld().spawnParticle(Particle.CLOUD, 
+                            player.getLocation().clone().add(offsetX, 0.5, offsetZ), 0, 0, 0, 0, 1);
+                    }
+                }
             }
         }.runTaskTimer(plugin, 0L, 1L);
     }
     
     @EventHandler
-    public void onPlayerMove(PlayerMoveEvent event) {
-        Player player = event.getPlayer();
-        Location to = event.getTo();
-        if (to == null) return;
+    public void onEntityDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player)) return;
         
-        for (Map.Entry<UUID, PortalData> entry : activePortals.entrySet()) {
-            PortalData data = entry.getValue();
-            
-            if (to.distance(data.portal1) < 1.2) {
-                player.teleport(data.portal2);
-                player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
-                createTeleportFlash(data.portal2, MagicFruits.getInstance());
-                break;
-            } else if (to.distance(data.portal2) < 1.2) {
-                player.teleport(data.portal1);
-                player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
-                createTeleportFlash(data.portal1, MagicFruits.getInstance());
-                break;
-            }
-        }
-    }
-    
-    private void createTeleportFlash(Location loc, MagicFruits plugin) {
-        World world = loc.getWorld();
-        
-        new BukkitRunnable() {
-            int ticks = 0;
-            
-            @Override
-            public void run() {
-                if (ticks >= 10) {
-                    this.cancel();
-                    return;
-                }
-                
-                double radius = 1.5;
-                for (int i = 0; i < 360; i += 30) {
-                    double rad = Math.toRadians(i + ticks * 30);
-                    double x = Math.cos(rad) * radius;
-                    double z = Math.sin(rad) * radius;
-                    
-                    if (plugin.getDataManager().isParticlesEnabled()) {
-                        world.spawnParticle(Particle.PORTAL, loc.clone().add(x, 0.5, z), 0, 0, 0, 0, 1);
-                        world.spawnParticle(Particle.END_ROD, loc.clone().add(x, 1.2, z), 0, 0, 0, 0, 1);
-                    }
-                }
-                ticks++;
-            }
-        }.runTaskTimer(plugin, 0L, 1L);
-    }
-    
-    private void executeSummonPortal(Player player, MagicFruits plugin) {
+        Player player = (Player) event.getDamager();
         UUID uuid = player.getUniqueId();
         
-        long lastUse = summonCooldown.getOrDefault(uuid, 0L);
-        if (System.currentTimeMillis() - lastUse < 1200000) {
-            long remaining = (1200000 - (System.currentTimeMillis() - lastUse)) / 1000;
-            long minutes = remaining / 60;
-            long seconds = remaining % 60;
-            player.sendMessage("§c§l⚠ §fSummon Portal on cooldown! §7(" + minutes + "m " + seconds + "s remaining)");
-            return;
-        }
-        
-        Block targetBlock = player.getTargetBlock(null, 30);
-        if (targetBlock == null) {
-            player.sendMessage("§c§l⚠ §fNo block in sight!");
-            return;
-        }
-        
-        Location portalLoc = targetBlock.getLocation().add(0.5, 1, 0.5);
-        createSummonPortalVortex(portalLoc, plugin);
-        
-        activeSummonPortals.put(uuid, new SummonPortalData(portalLoc, player, System.currentTimeMillis() + 120000));
-        summonCooldown.put(uuid, System.currentTimeMillis());
-        
-        if (plugin.getDataManager().isSoundsEnabled()) {
-            player.getWorld().playSound(portalLoc, Sound.ENTITY_ELDER_GUARDIAN_CURSE, 1.0f, 0.6f);
-            player.getWorld().playSound(portalLoc, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 1.2f);
-        }
-        
-        player.sendTitle("§5§l🌀 SUMMON PORTAL! 🌀", "§eLeft click to summon any player!", 10, 40, 10);
-        player.sendMessage("§5§l🌀 §fSummon portal created for 2 minutes!");
-    }
-    
-    private void createSummonPortalVortex(Location center, MagicFruits plugin) {
-        World world = center.getWorld();
-        
-        new BukkitRunnable() {
-            int ticks = 0;
+        if (activePhase.containsKey(uuid)) {
+            int hits = hitCounter.getOrDefault(uuid, 0) + 1;
             
-            @Override
-            public void run() {
-                if (ticks >= 100) {
-                    this.cancel();
-                    return;
+            if (hits >= 3) {
+                double newHealth = Math.min(player.getHealth() + 2, player.getMaxHealth());
+                player.setHealth(newHealth);
+                
+                if (MagicFruits.getInstance().getDataManager().isParticlesEnabled()) {
+                    player.getWorld().spawnParticle(Particle.HEART, player.getLocation().add(0, 1, 0), 5, 0.5, 0.5, 0.5, 0.1);
                 }
                 
-                double radius = 2.0;
-                for (int i = 0; i < 360; i += 15) {
-                    double theta = Math.toRadians(i + ticks * 8);
-                    double x = Math.cos(theta) * radius;
-                    double z = Math.sin(theta) * radius;
-                    double y = 1.0 + (Math.sin(theta * 2) * 0.3) + (ticks * 0.02);
-                    
-                    if (plugin.getDataManager().isParticlesEnabled()) {
-                        world.spawnParticle(Particle.DUST, center.clone().add(x, y, z), 0, 0, 0, 0,
-                            new Particle.DustOptions(Color.fromRGB(0x6600CC), 0.8f));
-                        world.spawnParticle(Particle.PORTAL, center.clone().add(x, y + 0.2, z), 0, 0, 0, 0, 1);
-                    }
-                }
-                ticks++;
+                player.sendMessage("§4§l🩸 §fYou healed 1 heart!");
+                hits = 0;
             }
-        }.runTaskTimer(plugin, 0L, 1L);
+            hitCounter.put(uuid, hits);
+        }
     }
     
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
-        Block clickedBlock = event.getClickedBlock();
+        UUID uuid = player.getUniqueId();
         
-        if (clickedBlock == null) return;
-        Location clickedLoc = clickedBlock.getLocation().add(0.5, 1, 0.5);
-        
-        if (event.getAction() == org.bukkit.event.block.Action.LEFT_CLICK_BLOCK) {
-            for (Map.Entry<UUID, SummonPortalData> entry : activeSummonPortals.entrySet()) {
-                SummonPortalData data = entry.getValue();
-                if (clickedLoc.distance(data.portalLocation) < 1.5 && data.owner.equals(player)) {
-                    event.setCancelled(true);
-                    openSummonGUI(player);
+        // Left click while riding bat
+        if (activeBat.containsKey(uuid) && isRiding.getOrDefault(uuid, false) &&
+            (event.getAction() == org.bukkit.event.block.Action.LEFT_CLICK_AIR || 
+             event.getAction() == org.bukkit.event.block.Action.LEFT_CLICK_BLOCK)) {
+            event.setCancelled(true);
+            
+            long lastBite = biteCooldown.getOrDefault(uuid, 0L);
+            if (System.currentTimeMillis() - lastBite < 1500) {
+                return;
+            }
+            
+            for (Entity entity : player.getNearbyEntities(5, 10, 5)) {
+                if (entity instanceof LivingEntity && !entity.equals(player) && !(entity instanceof Bat)) {
+                    LivingEntity target = (LivingEntity) entity;
+                    
+                    target.damage(2, player);
+                    double newHealth = Math.min(player.getHealth() + 1, player.getMaxHealth());
+                    player.setHealth(newHealth);
+                    
+                    if (MagicFruits.getInstance().getDataManager().isParticlesEnabled()) {
+                        target.getWorld().spawnParticle(Particle.DUST, target.getLocation(), 20, 0.5, 0.5, 0.5,
+                            new Particle.DustOptions(Color.fromRGB(0x8B0000), 0.8f));
+                        player.getWorld().spawnParticle(Particle.HEART, player.getLocation().add(0, 1, 0), 3, 0.3, 0.3, 0.3, 0.1);
+                    }
+                    
+                    if (MagicFruits.getInstance().getDataManager().isSoundsEnabled()) {
+                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_BURP, 1.0f, 0.8f);
+                    }
+                    
+                    player.sendMessage("§8§l🦇 §fYou bit §e" + (target instanceof Player ? target.getName() : "enemy") + "§f!");
+                    
+                    biteCooldown.put(uuid, System.currentTimeMillis());
                     break;
                 }
             }
         }
     }
     
-    private void openSummonGUI(Player player) {
-        Inventory gui = Bukkit.createInventory(null, 54, "§5§l🌀 SUMMON PLAYER §5§l🌀");
-        
-        ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
-        ItemMeta borderMeta = border.getItemMeta();
-        borderMeta.setDisplayName(" ");
-        border.setItemMeta(borderMeta);
-        
-        for (int i = 0; i < 54; i++) {
-            if (i < 9 || i >= 45 || i % 9 == 0 || i % 9 == 8) {
-                gui.setItem(i, border);
-            }
-        }
-        
-        int slot = 19;
-        for (Player target : Bukkit.getOnlinePlayers()) {
-            if (target.equals(player)) continue;
-            
-            ItemStack head = new ItemStack(Material.PLAYER_HEAD);
-            SkullMeta meta = (SkullMeta) head.getItemMeta();
-            meta.setOwningPlayer(target);
-            meta.setDisplayName("§e§l" + target.getName());
-            
-            List<String> lore = new ArrayList<>();
-            lore.add("§8§m-----------------------------");
-            lore.add("§7Click to summon §e" + target.getName());
-            lore.add("§7to your location!");
-            lore.add("§8§m-----------------------------");
-            meta.setLore(lore);
-            
-            head.setItemMeta(meta);
-            gui.setItem(slot, head);
-            slot++;
-            if ((slot + 1) % 9 == 0) slot += 2;
-            if (slot > 43) break;
-        }
-        
-        player.openInventory(gui);
-    }
-    
     @EventHandler
-    public void onInventoryClick(org.bukkit.event.inventory.InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player player)) return;
-        if (!event.getView().getTitle().equals("§5§l🌀 SUMMON PLAYER §5§l🌀")) return;
-        
-        event.setCancelled(true);
-        ItemStack clicked = event.getCurrentItem();
-        if (clicked == null || clicked.getType() != Material.PLAYER_HEAD) return;
-        
-        String targetName = org.bukkit.ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
-        Player target = Bukkit.getServer().getPlayer(targetName);
-        
-        if (target != null) {
-            MagicFruits plugin = MagicFruits.getInstance();
-            Location summonLoc = player.getLocation();
-            
-            target.teleport(summonLoc);
-            
-            if (plugin.getDataManager().isParticlesEnabled()) {
-                target.getWorld().spawnParticle(Particle.PORTAL, target.getLocation(), 100, 1, 1, 1, 0.5);
-            }
-            
-            if (plugin.getDataManager().isSoundsEnabled()) {
-                target.playSound(target.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
-            }
-            
-            target.sendTitle("§5§l🌀 SUMMONED! 🌀", "§eYou were summoned by " + player.getName(), 10, 40, 10);
-            player.sendMessage("§a§l✓ §fYou summoned §e" + target.getName());
-            
-            player.closeInventory();
-            activeSummonPortals.remove(player.getUniqueId());
+    public void onPlayerMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        // Prevent normal movement while riding bat
+        if (activeBat.containsKey(player.getUniqueId()) && isRiding.getOrDefault(player.getUniqueId(), false)) {
+            event.setCancelled(true);
         }
     }
     
     @Override
     public String getPrimaryDescription() {
-        return "Create teleport portals (2 portals, 15s to connect, 60s cooldown after both portals placed)";
+        return "Blood Phase (15s, every 3 hits heals 1 heart, 45s cooldown)";
     }
     
     @Override
     public String getSecondaryDescription() {
-        return "Create summon portal (20 min cooldown, left click to summon players)";
+        return "Summon Bat (20s ride, WASD to fly, crouch to mount/dismount, left click to bite, 60s cooldown)";
     }
             }
