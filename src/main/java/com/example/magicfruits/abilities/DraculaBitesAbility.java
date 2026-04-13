@@ -25,8 +25,7 @@ public class DraculaBitesAbility implements Ability, Listener {
     private final Map<UUID, Long> phaseCooldown = new ConcurrentHashMap<>();
     private final Map<UUID, Long> batCooldown = new ConcurrentHashMap<>();
     private final Map<UUID, Long> biteCooldown = new ConcurrentHashMap<>();
-    private final Map<UUID, Boolean> flyingUp = new ConcurrentHashMap<>();
-    private final Map<UUID, Boolean> flyingDown = new ConcurrentHashMap<>();
+    private final Map<UUID, Boolean> isRiding = new ConcurrentHashMap<>();
     
     private static class PhaseData {
         long expiryTime;
@@ -40,13 +39,11 @@ public class DraculaBitesAbility implements Ability, Listener {
         Bat bat;
         Player rider;
         long expiryTime;
-        boolean isFlying;
         
         BatData(Bat bat, Player rider, long expiry) {
             this.bat = bat;
             this.rider = rider;
             this.expiryTime = expiry;
-            this.isFlying = true;
         }
     }
     
@@ -67,6 +64,7 @@ public class DraculaBitesAbility implements Ability, Listener {
                             bat.remove();
                         }
                         activeBat.remove(entry.getKey());
+                        isRiding.remove(entry.getKey());
                     }
                 }
             }
@@ -98,7 +96,6 @@ public class DraculaBitesAbility implements Ability, Listener {
         phaseCooldown.put(uuid, System.currentTimeMillis());
         hitCounter.put(uuid, 0);
         
-        // Blood particles
         if (plugin.getDataManager().isParticlesEnabled()) {
             new BukkitRunnable() {
                 int ticks = 0;
@@ -154,6 +151,7 @@ public class DraculaBitesAbility implements Ability, Listener {
                 oldBat.remove();
             }
             activeBat.remove(uuid);
+            isRiding.remove(uuid);
         }
         
         // Summon bat
@@ -164,13 +162,14 @@ public class DraculaBitesAbility implements Ability, Listener {
         bat.setInvulnerable(true);
         bat.setGravity(false);
         
-        // Mount player on bat
-        bat.addPassenger(player);
-        
         activeBat.put(uuid, new BatData(bat, player, System.currentTimeMillis() + 20000));
         batCooldown.put(uuid, System.currentTimeMillis());
         
-        // Bat flight control system
+        // Mount player on bat
+        bat.addPassenger(player);
+        isRiding.put(uuid, true);
+        
+        // Start bat flight control
         startBatFlightControl(player, bat, plugin);
         
         if (plugin.getDataManager().isParticlesEnabled()) {
@@ -185,7 +184,7 @@ public class DraculaBitesAbility implements Ability, Listener {
         
         player.sendTitle("§8§l🦇 BAT RIDE! 🦇", "§eUse WASD to fly, Left Click to bite!", 10, 40, 10);
         player.sendMessage("§8§l🦇 §fYou are riding a bat for 20 seconds!");
-        player.sendMessage("§eW = Up | S = Down | A/D = Turn | Left Click = Bite");
+        player.sendMessage("§eCrouch to dismount | Left Click to bite");
         
         // Auto dismount after 20 seconds
         new BukkitRunnable() {
@@ -198,11 +197,39 @@ public class DraculaBitesAbility implements Ability, Listener {
                         data.bat.remove();
                     }
                     activeBat.remove(uuid);
+                    isRiding.remove(uuid);
                     player.sendMessage("§c§l⚠ §fYour bat has flown away!");
                     player.playSound(player.getLocation(), Sound.ENTITY_BAT_DEATH, 1.0f, 1.0f);
                 }
             }
         }.runTaskLater(plugin, 400L);
+    }
+    
+    @EventHandler
+    public void onPlayerToggleSneak(PlayerToggleSneakEvent event) {
+        Player player = event.getPlayer();
+        UUID uuid = player.getUniqueId();
+        
+        // Crouch to dismount bat
+        if (event.isSneaking() && activeBat.containsKey(uuid) && isRiding.getOrDefault(uuid, false)) {
+            BatData data = activeBat.get(uuid);
+            if (data != null && data.bat != null && data.bat.isValid()) {
+                data.bat.eject();
+                isRiding.put(uuid, false);
+                player.sendMessage("§8§l🦇 §fYou dismounted the bat!");
+                player.playSound(player.getLocation(), Sound.ENTITY_BAT_HURT, 1.0f, 0.8f);
+            }
+        }
+        // Crouch to mount again if bat is still there
+        else if (event.isSneaking() && activeBat.containsKey(uuid) && !isRiding.getOrDefault(uuid, false)) {
+            BatData data = activeBat.get(uuid);
+            if (data != null && data.bat != null && data.bat.isValid()) {
+                data.bat.addPassenger(player);
+                isRiding.put(uuid, true);
+                player.sendMessage("§8§l🦇 §fYou mounted the bat again!");
+                player.playSound(player.getLocation(), Sound.ENTITY_BAT_TAKEOFF, 1.0f, 1.0f);
+            }
+        }
     }
     
     private void startBatFlightControl(Player player, Bat bat, MagicFruits plugin) {
@@ -217,43 +244,38 @@ public class DraculaBitesAbility implements Ability, Listener {
                     return;
                 }
                 
+                // Only control if riding
+                if (!isRiding.getOrDefault(uuid, false)) {
+                    return;
+                }
+                
                 // Get player's input
                 boolean forward = player.isSprinting();      // W key
-                boolean backward = player.isSneaking();      // S key
+                boolean backward = player.isSneaking() && !player.getVehicle()?.equals(bat);      // S key
                 float yaw = player.getLocation().getYaw();
                 
-                // Calculate movement direction
                 double speed = 0.6;
                 Vector velocity = new Vector();
                 
-                // Forward/Backward movement
                 if (forward) {
                     velocity.setX(-Math.sin(Math.toRadians(yaw)) * speed);
                     velocity.setZ(Math.cos(Math.toRadians(yaw)) * speed);
-                } else if (backward) {
-                    velocity.setX(Math.sin(Math.toRadians(yaw)) * speed * 0.5);
-                    velocity.setZ(-Math.cos(Math.toRadians(yaw)) * speed * 0.5);
                 }
                 
-                // Up/Down based on looking angle
                 float pitch = player.getLocation().getPitch();
                 velocity.setY(-Math.sin(Math.toRadians(pitch)) * 0.5);
                 
-                // Apply velocity to bat
                 if (velocity.length() > 0) {
                     data.bat.setVelocity(velocity);
                 } else {
-                    // Hover in place
                     data.bat.setVelocity(new Vector(0, 0, 0));
                 }
                 
-                // Rotate bat to face direction
                 if (velocity.getX() != 0 || velocity.getZ() != 0) {
                     float targetYaw = (float) Math.toDegrees(Math.atan2(-velocity.getX(), velocity.getZ()));
                     data.bat.setRotation(targetYaw, pitch);
                 }
                 
-                // Bat wing flap particles
                 if (plugin.getDataManager().isParticlesEnabled()) {
                     for (int i = 0; i < 2; i++) {
                         double offsetX = Math.sin(Math.toRadians(yaw)) * 0.5;
@@ -297,7 +319,7 @@ public class DraculaBitesAbility implements Ability, Listener {
         UUID uuid = player.getUniqueId();
         
         // Left click while riding bat
-        if (activeBat.containsKey(uuid) && 
+        if (activeBat.containsKey(uuid) && isRiding.getOrDefault(uuid, false) &&
             (event.getAction() == org.bukkit.event.block.Action.LEFT_CLICK_AIR || 
              event.getAction() == org.bukkit.event.block.Action.LEFT_CLICK_BLOCK)) {
             event.setCancelled(true);
@@ -307,7 +329,6 @@ public class DraculaBitesAbility implements Ability, Listener {
                 return;
             }
             
-            // Find entity below player
             for (Entity entity : player.getNearbyEntities(5, 10, 5)) {
                 if (entity instanceof LivingEntity && !entity.equals(player) && !(entity instanceof Bat)) {
                     LivingEntity target = (LivingEntity) entity;
@@ -339,7 +360,7 @@ public class DraculaBitesAbility implements Ability, Listener {
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
         // Prevent normal movement while riding bat
-        if (activeBat.containsKey(player.getUniqueId()) && player.getVehicle() instanceof Bat) {
+        if (activeBat.containsKey(player.getUniqueId()) && isRiding.getOrDefault(player.getUniqueId(), false)) {
             event.setCancelled(true);
         }
     }
@@ -351,6 +372,6 @@ public class DraculaBitesAbility implements Ability, Listener {
     
     @Override
     public String getSecondaryDescription() {
-        return "Summon Bat (20s ride, WASD to fly, left click to bite, 60s cooldown)";
+        return "Summon Bat (20s ride, WASD to fly, crouch to mount/dismount, 60s cooldown)";
     }
-                    }
+    }
