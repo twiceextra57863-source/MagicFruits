@@ -182,9 +182,9 @@ public class DraculaBitesAbility implements Ability, Listener {
             player.playSound(player.getLocation(), Sound.ENTITY_BAT_TAKEOFF, 1.0f, 1.0f);
         }
         
-        player.sendTitle("§8§l🦇 BAT RIDE! 🦇", "§eUse WASD to fly, Left Click to bite!", 10, 40, 10);
+        player.sendTitle("§8§l🦇 BAT RIDE! 🦇", "§eW/S = Forward/Back, A/D = Turn, Look Up/Down = Fly", 10, 40, 10);
         player.sendMessage("§8§l🦇 §fYou are riding a bat for 20 seconds!");
-        player.sendMessage("§eCrouch to dismount | Crouch again to remount | Left Click to bite");
+        player.sendMessage("§eCrouch to dismount | Left Click to bite");
         
         // Auto dismount after 20 seconds
         new BukkitRunnable() {
@@ -220,6 +220,8 @@ public class DraculaBitesAbility implements Ability, Listener {
                     isRiding.put(uuid, false);
                     player.sendMessage("§8§l🦇 §fYou dismounted the bat!");
                     player.playSound(player.getLocation(), Sound.ENTITY_BAT_HURT, 1.0f, 0.8f);
+                    // Stop movement cancellation when dismounted
+                    player.setVelocity(new Vector(0, 0, 0));
                 } else {
                     // Mount
                     data.bat.addPassenger(player);
@@ -248,38 +250,43 @@ public class DraculaBitesAbility implements Ability, Listener {
                     return;
                 }
                 
-                // Get player's input
+                // Get player's movement direction
                 boolean forward = player.isSprinting();      // W key
+                boolean backward = player.isSneaking() && isRiding.getOrDefault(uuid, false);  // S key (only when riding)
                 float yaw = player.getLocation().getYaw();
+                float pitch = player.getLocation().getPitch();
                 
-                double speed = 0.6;
+                double speed = 0.8;
                 Vector velocity = new Vector();
                 
+                // Forward/Backward movement
                 if (forward) {
                     velocity.setX(-Math.sin(Math.toRadians(yaw)) * speed);
                     velocity.setZ(Math.cos(Math.toRadians(yaw)) * speed);
+                } else if (backward) {
+                    velocity.setX(Math.sin(Math.toRadians(yaw)) * speed * 0.5);
+                    velocity.setZ(-Math.cos(Math.toRadians(yaw)) * speed * 0.5);
                 }
                 
-                float pitch = player.getLocation().getPitch();
-                velocity.setY(-Math.sin(Math.toRadians(pitch)) * 0.5);
+                // Up/Down based on looking angle
+                velocity.setY(-Math.sin(Math.toRadians(pitch)) * 0.6);
                 
-                if (velocity.length() > 0) {
-                    data.bat.setVelocity(velocity);
-                } else {
-                    data.bat.setVelocity(new Vector(0, 0, 0));
-                }
+                // Apply velocity to bat
+                data.bat.setVelocity(velocity);
                 
+                // Rotate bat to face direction
                 if (velocity.getX() != 0 || velocity.getZ() != 0) {
                     float targetYaw = (float) Math.toDegrees(Math.atan2(-velocity.getX(), velocity.getZ()));
                     data.bat.setRotation(targetYaw, pitch);
                 }
                 
+                // Bat wing flap particles
                 if (plugin.getDataManager().isParticlesEnabled()) {
-                    for (int i = 0; i < 2; i++) {
-                        double offsetX = Math.sin(Math.toRadians(yaw)) * 0.5;
-                        double offsetZ = -Math.cos(Math.toRadians(yaw)) * 0.5;
+                    for (int i = 0; i < 3; i++) {
+                        double offsetX = Math.sin(Math.toRadians(yaw)) * 0.6;
+                        double offsetZ = -Math.cos(Math.toRadians(yaw)) * 0.6;
                         player.getWorld().spawnParticle(Particle.CLOUD, 
-                            player.getLocation().clone().add(offsetX, 0.5, offsetZ), 0, 0, 0, 0, 1);
+                            player.getLocation().clone().add(offsetX, 0.3, offsetZ), 0, 0, 0, 0, 1);
                     }
                 }
             }
@@ -354,14 +361,7 @@ public class DraculaBitesAbility implements Ability, Listener {
         }
     }
     
-    @EventHandler
-    public void onPlayerMove(PlayerMoveEvent event) {
-        Player player = event.getPlayer();
-        // Prevent normal movement while riding bat
-        if (activeBat.containsKey(player.getUniqueId()) && isRiding.getOrDefault(player.getUniqueId(), false)) {
-            event.setCancelled(true);
-        }
-    }
+    // REMOVED onPlayerMove - no more teleportation/cancellation issues
     
     @Override
     public String getPrimaryDescription() {
@@ -372,4 +372,4 @@ public class DraculaBitesAbility implements Ability, Listener {
     public String getSecondaryDescription() {
         return "Summon Bat (20s ride, WASD to fly, crouch to mount/dismount, left click to bite, 60s cooldown)";
     }
-            }
+                                                }
