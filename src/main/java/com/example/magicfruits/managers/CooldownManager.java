@@ -16,11 +16,36 @@ public class CooldownManager {
     private final Map<UUID, Map<FruitType, Map<String, Long>>> cooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, Map<FruitType, Map<String, Integer>>> activeTasks = new ConcurrentHashMap<>();
     
+    // Special flag for portal ability first click
+    private final Map<UUID, Boolean> portalFirstClick = new ConcurrentHashMap<>();
+    
     public CooldownManager(MagicFruits plugin) {
         this.plugin = plugin;
     }
     
     public boolean isOnCooldown(UUID playerId, FruitType fruit, String abilityType) {
+        // PORTAL FRUIT SPECIAL HANDLING - First click never has cooldown
+        if (fruit == FruitType.PORTAL_FRUIT && abilityType.equals("primary")) {
+            // Check if this is the first click after cooldown ended
+            if (!portalFirstClick.getOrDefault(playerId, true)) {
+                portalFirstClick.put(playerId, true);
+                return false;
+            }
+            // Normal cooldown check for subsequent clicks
+            Map<FruitType, Map<String, Long>> playerCooldowns = cooldowns.get(playerId);
+            if (playerCooldowns == null) return false;
+            Map<String, Long> abilityCooldowns = playerCooldowns.get(fruit);
+            if (abilityCooldowns == null) return false;
+            Long cooldownEnd = abilityCooldowns.get(abilityType);
+            if (cooldownEnd == null) return false;
+            boolean onCooldown = cooldownEnd > System.currentTimeMillis();
+            if (!onCooldown) {
+                portalFirstClick.put(playerId, true);
+            }
+            return onCooldown;
+        }
+        
+        // Normal cooldown check for other fruits
         Map<FruitType, Map<String, Long>> playerCooldowns = cooldowns.get(playerId);
         if (playerCooldowns == null) return false;
         Map<String, Long> abilityCooldowns = playerCooldowns.get(fruit);
@@ -34,6 +59,11 @@ public class CooldownManager {
         Map<FruitType, Map<String, Long>> playerCooldowns = cooldowns.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>());
         Map<String, Long> abilityCooldowns = playerCooldowns.computeIfAbsent(fruit, k -> new ConcurrentHashMap<>());
         abilityCooldowns.put(abilityType, System.currentTimeMillis() + (plugin.getDataManager().getCooldownTime() * 1000L));
+        
+        // For portal fruit, mark that next click will be cooldown check
+        if (fruit == FruitType.PORTAL_FRUIT && abilityType.equals("primary")) {
+            portalFirstClick.put(playerId, false);
+        }
     }
     
     public void startCooldown(UUID playerId, FruitType fruit, String abilityType) {
