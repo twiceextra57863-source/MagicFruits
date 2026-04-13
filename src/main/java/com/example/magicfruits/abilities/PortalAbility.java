@@ -28,12 +28,14 @@ public class PortalAbility implements Ability, Listener {
     private static class PortalCreationData {
         Location firstPortal;
         long creationTime;
-        boolean waitingForSecond;
+        boolean isWaiting;
+        int taskId;
         
         PortalCreationData(Location loc, long time) {
             this.firstPortal = loc;
             this.creationTime = time;
-            this.waitingForSecond = true;
+            this.isWaiting = true;
+            this.taskId = -1;
         }
     }
     
@@ -70,7 +72,6 @@ public class PortalAbility implements Ability, Listener {
                 long now = System.currentTimeMillis();
                 activePortals.entrySet().removeIf(entry -> entry.getValue().expiryTime <= now);
                 activeSummonPortals.entrySet().removeIf(entry -> entry.getValue().expiryTime <= now);
-                creatingPortal.entrySet().removeIf(entry -> !entry.getValue().waitingForSecond);
             }
         }.runTaskTimer(MagicFruits.getInstance(), 20L, 20L);
     }
@@ -89,13 +90,14 @@ public class PortalAbility implements Ability, Listener {
     private void executeTeleportPortal(Player player, MagicFruits plugin) {
         UUID uuid = player.getUniqueId();
         
-        // Check if already waiting for second portal
-        if (creatingPortal.containsKey(uuid)) {
+        // Case 1: Player is waiting to place second portal
+        if (creatingPortal.containsKey(uuid) && creatingPortal.get(uuid).isWaiting) {
             PortalCreationData data = creatingPortal.get(uuid);
             
-            if (!data.waitingForSecond) {
+            // Check if 15 seconds have passed
+            if (System.currentTimeMillis() - data.creationTime > 15000) {
                 creatingPortal.remove(uuid);
-                player.sendMessage("§c§l⚠ §fPortal creation expired!");
+                player.sendMessage("§c§l⚠ §fTime expired! Start again.");
                 return;
             }
             
@@ -132,7 +134,7 @@ public class PortalAbility implements Ability, Listener {
             return;
         }
         
-        // FIRST PORTAL PLACEMENT - NO COOLDOWN CHECK
+        // Case 2: First portal placement - NO COOLDOWN CHECK
         Block targetBlock = player.getTargetBlock(null, 30);
         if (targetBlock == null) {
             player.sendMessage("§c§l⚠ §fNo block in sight!");
@@ -145,31 +147,24 @@ public class PortalAbility implements Ability, Listener {
         createPortalRings(firstPortal, plugin);
         
         // Store creation data
-        creatingPortal.put(uuid, new PortalCreationData(firstPortal, System.currentTimeMillis()));
+        PortalCreationData data = new PortalCreationData(firstPortal, System.currentTimeMillis());
+        creatingPortal.put(uuid, data);
         
-        // Play sound
-        if (plugin.getDataManager().isSoundsEnabled()) {
-            player.getWorld().playSound(firstPortal, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 1.0f);
-        }
-        
-        player.sendTitle("§5§l🔮 FIRST PORTAL PLACED! 🔮", 
-            "§eRight click again within 15 seconds!", 10, 40, 10);
-        player.sendMessage("§5§l🔮 §fFirst portal placed! You have 15 seconds to place the second!");
-        
-        // Countdown timer
-        new BukkitRunnable() {
+        // Start countdown timer
+        data.taskId = new BukkitRunnable() {
             int seconds = 15;
             
             @Override
             public void run() {
                 PortalCreationData current = creatingPortal.get(uuid);
-                if (current == null || !current.waitingForSecond) {
+                if (current == null || !current.isWaiting) {
                     this.cancel();
                     return;
                 }
                 
                 if (seconds <= 0) {
-                    current.waitingForSecond = false;
+                    current.isWaiting = false;
+                    creatingPortal.remove(uuid);
                     player.sendMessage("§c§l⚠ §fTime expired! Portal creation cancelled.");
                     player.sendTitle("§c§l⚠ TIME EXPIRED! ⚠", 
                         "§eYou took too long!", 10, 30, 10);
@@ -180,7 +175,16 @@ public class PortalAbility implements Ability, Listener {
                 player.sendActionBar("§5§l⏳ Place second portal: §e" + seconds + "s remaining");
                 seconds--;
             }
-        }.runTaskTimer(plugin, 0L, 20L);
+        }.runTaskTimer(plugin, 0L, 20L).getTaskId();
+        
+        // Play sound
+        if (plugin.getDataManager().isSoundsEnabled()) {
+            player.getWorld().playSound(firstPortal, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 1.0f);
+        }
+        
+        player.sendTitle("§5§l🔮 FIRST PORTAL PLACED! 🔮", 
+            "§eRight click again within 15 seconds!", 10, 40, 10);
+        player.sendMessage("§5§l🔮 §fFirst portal placed! You have 15 seconds to place the second!");
     }
     
     private void createPortalRings(Location center, MagicFruits plugin) {
@@ -197,7 +201,6 @@ public class PortalAbility implements Ability, Listener {
                 }
                 
                 double radius = 1.8;
-                // Outer ring - rotating clockwise
                 for (int i = 0; i < 360; i += 15) {
                     double theta = Math.toRadians(i + ticks * 12);
                     double x = Math.cos(theta) * radius;
@@ -211,7 +214,6 @@ public class PortalAbility implements Ability, Listener {
                     }
                 }
                 
-                // Inner ring - rotating counter-clockwise
                 double radius2 = 1.2;
                 for (int i = 0; i < 360; i += 15) {
                     double theta = Math.toRadians(i - ticks * 10);
@@ -235,19 +237,15 @@ public class PortalAbility implements Ability, Listener {
         Location to = event.getTo();
         if (to == null) return;
         
-        // Check for teleportation when walking into portals
         for (Map.Entry<UUID, PortalData> entry : activePortals.entrySet()) {
             PortalData data = entry.getValue();
             
-            // Check first portal
             if (to.distance(data.portal1) < 1.2) {
                 player.teleport(data.portal2);
                 player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
                 createTeleportFlash(data.portal2, MagicFruits.getInstance());
                 break;
-            }
-            // Check second portal
-            else if (to.distance(data.portal2) < 1.2) {
+            } else if (to.distance(data.portal2) < 1.2) {
                 player.teleport(data.portal1);
                 player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
                 createTeleportFlash(data.portal1, MagicFruits.getInstance());
@@ -304,7 +302,6 @@ public class PortalAbility implements Ability, Listener {
         }
         
         Location portalLoc = targetBlock.getLocation().add(0.5, 1, 0.5);
-        
         createSummonPortalVortex(portalLoc, plugin);
         
         activeSummonPortals.put(uuid, new SummonPortalData(portalLoc, player, System.currentTimeMillis() + 120000));
@@ -315,8 +312,7 @@ public class PortalAbility implements Ability, Listener {
             player.getWorld().playSound(portalLoc, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 1.2f);
         }
         
-        player.sendTitle("§5§l🌀 SUMMON PORTAL! 🌀", 
-            "§eLeft click to summon any player!", 10, 40, 10);
+        player.sendTitle("§5§l🌀 SUMMON PORTAL! 🌀", "§eLeft click to summon any player!", 10, 40, 10);
         player.sendMessage("§5§l🌀 §fSummon portal created for 2 minutes!");
     }
     
@@ -359,7 +355,6 @@ public class PortalAbility implements Ability, Listener {
         if (clickedBlock == null) return;
         Location clickedLoc = clickedBlock.getLocation().add(0.5, 1, 0.5);
         
-        // LEFT CLICK - Summon Portal
         if (event.getAction() == org.bukkit.event.block.Action.LEFT_CLICK_BLOCK) {
             for (Map.Entry<UUID, SummonPortalData> entry : activeSummonPortals.entrySet()) {
                 SummonPortalData data = entry.getValue();
@@ -455,4 +450,4 @@ public class PortalAbility implements Ability, Listener {
     public String getSecondaryDescription() {
         return "Create summon portal (20 min cooldown, left click to summon players)";
     }
-                                        }
+             }
