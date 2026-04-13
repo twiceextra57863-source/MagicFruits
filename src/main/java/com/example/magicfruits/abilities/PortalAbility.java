@@ -24,7 +24,6 @@ public class PortalAbility implements Ability, Listener {
     private final Map<UUID, PortalData> activePortals = new ConcurrentHashMap<>();
     private final Map<UUID, SummonPortalData> activeSummonPortals = new ConcurrentHashMap<>();
     private final Map<UUID, Long> summonCooldown = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> teleportCooldown = new ConcurrentHashMap<>();
     
     private static class PortalCreationData {
         Location firstPortal;
@@ -73,7 +72,6 @@ public class PortalAbility implements Ability, Listener {
                 long now = System.currentTimeMillis();
                 activePortals.entrySet().removeIf(entry -> entry.getValue().expiryTime <= now);
                 activeSummonPortals.entrySet().removeIf(entry -> entry.getValue().expiryTime <= now);
-                teleportCooldown.entrySet().removeIf(entry -> entry.getValue() <= now);
             }
         }.runTaskTimer(MagicFruits.getInstance(), 20L, 20L);
     }
@@ -92,7 +90,9 @@ public class PortalAbility implements Ability, Listener {
     private void executeTeleportPortal(Player player, MagicFruits plugin) {
         UUID uuid = player.getUniqueId();
         
-        // Case 1: Player is waiting to place second portal (NO COOLDOWN CHECK HERE)
+        // NO COOLDOWN CHECK AT ALL - Completely removed
+        
+        // Case 1: Player is waiting to place second portal
         if (creatingPortal.containsKey(uuid) && creatingPortal.get(uuid).isWaiting) {
             PortalCreationData data = creatingPortal.get(uuid);
             
@@ -133,21 +133,10 @@ public class PortalAbility implements Ability, Listener {
             player.sendTitle("§5§l✨ PORTALS CONNECTED! ✨", 
                 "§eWalk through to teleport!", 10, 50, 10);
             player.sendMessage("§5§l🔮 §fPortals connected! They will last for 60 seconds!");
-            
-            // SET COOLDOWN ONLY AFTER SECOND PORTAL IS PLACED
-            teleportCooldown.put(uuid, System.currentTimeMillis() + 60000);
             return;
         }
         
-        // Case 2: Check if ability is on cooldown (after 2 portals are placed)
-        long lastUse = teleportCooldown.getOrDefault(uuid, 0L);
-        if (System.currentTimeMillis() - lastUse < 60000 && teleportCooldown.containsKey(uuid)) {
-            long remaining = (60000 - (System.currentTimeMillis() - lastUse)) / 1000;
-            player.sendMessage("§c§l⚠ §fPortal ability on cooldown! §7(" + remaining + " seconds remaining)");
-            return;
-        }
-        
-        // Case 3: First portal placement - NO COOLDOWN CHECK AT ALL
+        // Case 2: First portal placement - ALWAYS WORKS, NO COOLDOWN
         Block targetBlock = player.getTargetBlock(null, 30);
         if (targetBlock == null) {
             player.sendMessage("§c§l⚠ §fNo block in sight!");
@@ -456,11 +445,11 @@ public class PortalAbility implements Ability, Listener {
     
     @Override
     public String getPrimaryDescription() {
-        return "Create teleport portals (2 portals, 15s to connect, 60s cooldown after both portals placed)";
+        return "Create teleport portals (2 portals, 15s to connect, 60s duration)";
     }
     
     @Override
     public String getSecondaryDescription() {
         return "Create summon portal (20 min cooldown, left click to summon players)";
     }
-                    }
+            }
