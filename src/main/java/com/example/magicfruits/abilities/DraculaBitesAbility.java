@@ -184,7 +184,7 @@ public class DraculaBitesAbility implements Ability, Listener {
         
         player.sendTitle("§8§l🦇 BAT RIDE! 🦇", "§eUse WASD to fly, Left Click to bite!", 10, 40, 10);
         player.sendMessage("§8§l🦇 §fYou are riding a bat for 20 seconds!");
-        player.sendMessage("§eCrouch to dismount | Left Click to bite");
+        player.sendMessage("§eCrouch to dismount | Crouch again to remount | Left Click to bite");
         
         // Auto dismount after 20 seconds
         new BukkitRunnable() {
@@ -210,24 +210,23 @@ public class DraculaBitesAbility implements Ability, Listener {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
         
-        // Crouch to dismount bat
-        if (event.isSneaking() && activeBat.containsKey(uuid) && isRiding.getOrDefault(uuid, false)) {
+        // Crouch to toggle mount/dismount
+        if (event.isSneaking() && activeBat.containsKey(uuid)) {
             BatData data = activeBat.get(uuid);
             if (data != null && data.bat != null && data.bat.isValid()) {
-                data.bat.eject();
-                isRiding.put(uuid, false);
-                player.sendMessage("§8§l🦇 §fYou dismounted the bat!");
-                player.playSound(player.getLocation(), Sound.ENTITY_BAT_HURT, 1.0f, 0.8f);
-            }
-        }
-        // Crouch to mount again if bat is still there
-        else if (event.isSneaking() && activeBat.containsKey(uuid) && !isRiding.getOrDefault(uuid, false)) {
-            BatData data = activeBat.get(uuid);
-            if (data != null && data.bat != null && data.bat.isValid()) {
-                data.bat.addPassenger(player);
-                isRiding.put(uuid, true);
-                player.sendMessage("§8§l🦇 §fYou mounted the bat again!");
-                player.playSound(player.getLocation(), Sound.ENTITY_BAT_TAKEOFF, 1.0f, 1.0f);
+                if (isRiding.getOrDefault(uuid, false)) {
+                    // Dismount
+                    data.bat.eject();
+                    isRiding.put(uuid, false);
+                    player.sendMessage("§8§l🦇 §fYou dismounted the bat!");
+                    player.playSound(player.getLocation(), Sound.ENTITY_BAT_HURT, 1.0f, 0.8f);
+                } else {
+                    // Mount
+                    data.bat.addPassenger(player);
+                    isRiding.put(uuid, true);
+                    player.sendMessage("§8§l🦇 §fYou mounted the bat again!");
+                    player.playSound(player.getLocation(), Sound.ENTITY_BAT_TAKEOFF, 1.0f, 1.0f);
+                }
             }
         }
     }
@@ -251,7 +250,6 @@ public class DraculaBitesAbility implements Ability, Listener {
                 
                 // Get player's input
                 boolean forward = player.isSprinting();      // W key
-                boolean backward = player.isSneaking() && !player.getVehicle()?.equals(bat);      // S key
                 float yaw = player.getLocation().getYaw();
                 
                 double speed = 0.6;
@@ -372,6 +370,6 @@ public class DraculaBitesAbility implements Ability, Listener {
     
     @Override
     public String getSecondaryDescription() {
-        return "Summon Bat (20s ride, WASD to fly, crouch to mount/dismount, 60s cooldown)";
+        return "Summon Bat (20s ride, WASD to fly, crouch to mount/dismount, left click to bite, 60s cooldown)";
     }
-    }
+}
