@@ -12,67 +12,67 @@ public enum FruitType {
     
     CYCLONE_FURY_FRUIT("§b§l🌀 §3§lCYCLONE FURY §b§l🌀",
                        "§7§oCommand the raging winds",
-                       Material.NETHER_STAR,
+                       Material.WOODEN_SWORD,
                        1001,
                        new CycloneFuryAbility()),
     
     TSUNAMI_FRUIT("§b§l🌊 §3§lTSUNAMI FRUIT §b§l🌊",
                   "§7§oCommand the mighty oceans",
-                  Material.NETHER_STAR,
+                  Material.WOODEN_SWORD,
                   1002,
                   new TsunamiAbility()),
     
     DRACULA_BITES_FRUIT("§4§l🦇 §c§lDRACULA BITES §4§l🦇",
                         "§7§oEmbrace the vampire's curse",
-                        Material.NETHER_STAR,
+                        Material.WOODEN_SWORD,
                         1003,
                         new DraculaBitesAbility()),
     
     NATURE_HAMMER_FRUIT("§2§l🌳 §a§lNATURE HAMMER §2§l🌳",
                         "§7§oWield the power of ancient oak",
-                        Material.NETHER_STAR,
+                        Material.WOODEN_SWORD,
                         1004,
                         new NatureHammerAbility()),
     
     VOID_FRUIT("§5§l🌑 §8§lVOID FRUIT §5§l🌑",
               "§7§oEmbrace the darkness within",
-              Material.NETHER_STAR,
+              Material.WOODEN_SWORD,
               1005,
               new VoidAbility()),
     
     THUNDER_FRUIT("§3§l⚡ §b§lTHUNDER FRUIT §3§l⚡",
                  "§7§oCommand the storm itself",
-                 Material.NETHER_STAR,
+                 Material.WOODEN_SWORD,
                  1006,
                  new ThunderAbility()),
     
     THRONE_FRUIT("§6§l👑 §e§lTHRONE FRUIT §6§l👑",
                 "§7§oRule with royal power",
-                Material.NETHER_STAR,
+                Material.WOODEN_SWORD,
                 1007,
                 new ThroneAbility()),
     
     WIND_MONSTER_FRUIT("§f§l🌪️ §7§lWIND MONSTER §f§l🌪️",
                        "§7§oBecome the fury of the winds",
-                       Material.NETHER_STAR,
+                       Material.WOODEN_SWORD,
                        1008,
                        new WindMonsterAbility()),
     
     STAR_FRUIT("§d§l⭐ §5§lSTAR FRUIT §d§l⭐",
               "§7§oHarness cosmic energy",
-              Material.NETHER_STAR,
+              Material.WOODEN_SWORD,
               1009,
               new StarAbility()),
     
     THIEF_FRUIT("§8§l🎭 §0§lTHIEF FRUIT §8§l🎭",
                "§7§oSteal abilities from others",
-               Material.NETHER_STAR,
+               Material.WOODEN_SWORD,
                1010,
                new ThiefAbility()),
     
     PORTAL_FRUIT("§5§l🌀 §d§lPORTAL FRUIT §5§l🌀",
                 "§7§oMaster of dimensions",
-                Material.NETHER_STAR,
+                Material.WOODEN_SWORD,
                 1011,
                 new PortalAbility());
     
@@ -96,6 +96,7 @@ public enum FruitType {
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName(displayName);
         meta.setCustomModelData(customModelData);
+        meta.setUnbreakable(true);  // Make sword unbreakable
         
         List<String> lore = new ArrayList<>();
         lore.add("§8§m----------------------------------------");
