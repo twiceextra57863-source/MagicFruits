@@ -6,6 +6,7 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -16,12 +17,21 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class DraculaBitesAbility implements Ability, Listener {
     
+    private final Map<UUID, Long> bloodPhaseCooldown = new ConcurrentHashMap<>();
     private final Map<UUID, Long> batTransformCooldown = new ConcurrentHashMap<>();
-    private final Map<UUID, BatTransformData> activeTransform = new ConcurrentHashMap<>();
+    private final Map<UUID, BloodPhaseData> activeBloodPhase = new ConcurrentHashMap<>();
+    private final Map<UUID, BatTransformData> activeBatTransform = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> hitCounter = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> biteCooldown = new ConcurrentHashMap<>();
+    
+    private static class BloodPhaseData {
+        long expiryTime;
+        BloodPhaseData(long expiry) { this.expiryTime = expiry; }
+    }
     
     private static class BatTransformData {
         Player player;
-        Bat batEntity; // Actual bat entity reference
+        Bat batEntity;
         long expiryTime;
         
         BatTransformData(Player player, Bat bat, long expiry) {
@@ -34,16 +44,21 @@ public class DraculaBitesAbility implements Ability, Listener {
     public DraculaBitesAbility() {
         MagicFruits.getInstance().getServer().getPluginManager().registerEvents(this, MagicFruits.getInstance());
         
-        // Cleanup task
         new BukkitRunnable() {
             @Override
             public void run() {
                 long now = System.currentTimeMillis();
-                activeTransform.forEach((uuid, data) -> {
+                activeBloodPhase.entrySet().removeIf(entry -> entry.getValue().expiryTime <= now);
+                
+                // Bat transform cleanup
+                activeBatTransform.forEach((uuid, data) -> {
                     if (data.expiryTime <= now) {
-                        revertFromBat(data.player);
+                        Player p = Bukkit.getPlayer(uuid);
+                        if (p != null) revertFromBat(p, MagicFruits.getInstance());
                     }
                 });
+                
+                bloodPhaseCooldown.entrySet().removeIf(entry -> entry.getValue() <= now);
                 batTransformCooldown.entrySet().removeIf(entry -> entry.getValue() <= now);
             }
         }.runTaskTimer(MagicFruits.getInstance(), 20L, 20L);
@@ -58,103 +73,148 @@ public class DraculaBitesAbility implements Ability, Listener {
             executeBloodPhase(player, plugin);
         }
     }
+    
+    private void executeBloodPhase(Player player, MagicFruits plugin) {
+        UUID uuid = player.getUniqueId();
+        if (bloodPhaseCooldown.getOrDefault(uuid, 0L) > System.currentTimeMillis()) {
+            long remaining = (bloodPhaseCooldown.get(uuid) - System.currentTimeMillis()) / 1000;
+            player.sendMessage("§c§l⚠ §fBlood Phase on cooldown! §7(" + remaining + "s)");
+            return;
+        }
+        
+        activeBloodPhase.put(uuid, new BloodPhaseData(System.currentTimeMillis() + 15000));
+        bloodPhaseCooldown.put(uuid, System.currentTimeMillis() + 45000);
+        hitCounter.put(uuid, 0);
+        
+        player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 300, 1));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 300, 1));
+        
+        createBloodParticles(player, plugin);
+        
+        if (plugin.getDataManager().isSoundsEnabled()) {
+            player.playSound(player.getLocation(), Sound.ENTITY_WITHER_AMBIENT, 1.0f, 0.5f);
+        }
+        
+        player.sendTitle("§4§l🩸 BLOOD PHASE! 🩸", "§eStrength boost & Life steal!", 10, 40, 10);
+    }
 
     private void executeBatTransform(Player player, MagicFruits plugin) {
         UUID uuid = player.getUniqueId();
-        
-        // Cooldown check
         if (batTransformCooldown.getOrDefault(uuid, 0L) > System.currentTimeMillis()) {
             long remaining = (batTransformCooldown.get(uuid) - System.currentTimeMillis()) / 1000;
             player.sendMessage("§c§l⚠ §fBat Transform on cooldown! §7(" + remaining + "s)");
             return;
         }
-        
-        if (activeTransform.containsKey(uuid)) return;
 
-        // 1. Spawn the Bat Entity
+        if (activeBatTransform.containsKey(uuid)) return;
+
+        // Spawn actual Bat
         Bat bat = (Bat) player.getWorld().spawnEntity(player.getLocation(), EntityType.BAT);
         bat.setAwake(true);
         bat.setInvulnerable(true);
         bat.setSilent(true);
 
-        // 2. Set Data (15 Seconds)
-        long durationMillis = 15000;
-        BatTransformData data = new BatTransformData(player, bat, System.currentTimeMillis() + durationMillis);
-        activeTransform.put(uuid, data);
-        batTransformCooldown.put(uuid, System.currentTimeMillis() + 60000); // 60s cooldown
+        BatTransformData data = new BatTransformData(player, bat, System.currentTimeMillis() + 15000); // 15s
+        activeBatTransform.put(uuid, data);
+        batTransformCooldown.put(uuid, System.currentTimeMillis() + 60000);
 
-        // 3. Transform Effects
         player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 310, 1, false, false));
         player.setAllowFlight(true);
         player.setFlying(true);
-        
-        if (plugin.getDataManager().isSoundsEnabled()) {
-            player.playSound(player.getLocation(), Sound.ENTITY_BAT_TAKEOFF, 1.0f, 1.0f);
-        }
 
-        player.sendTitle("§8§l🦇 BAT FORM 🦇", "§eControl the bat for 15s!", 10, 40, 10);
+        player.sendTitle("§8§l🦇 BAT FORM 🦇", "§eFly and Bite enemies!", 10, 40, 10);
+        player.sendMessage("§8§l🦇 §fControl with WASD/Mouse. Left-Click to Bite!");
 
-        // 4. Movement Logic (Syncing Bat to Player)
         new BukkitRunnable() {
-            int ticks = 0;
             @Override
             public void run() {
-                if (!activeTransform.containsKey(uuid) || ticks > 300) { // 300 ticks = 15s
-                    revertFromBat(player);
+                if (!activeBatTransform.containsKey(uuid)) {
                     this.cancel();
                     return;
                 }
-
-                // Make the Bat stay at the player's position
+                
                 bat.teleport(player.getLocation());
-                
-                // Flight Control: Increase velocity in looking direction
-                Vector direction = player.getLocation().getDirection();
-                player.setVelocity(direction.multiply(0.6)); // Bat-like speed control
+                player.setVelocity(player.getLocation().getDirection().multiply(0.7)); // Fly speed
 
-                if (ticks % 5 == 0 && plugin.getDataManager().isParticlesEnabled()) {
-                    player.getWorld().spawnParticle(Particle.LARGE_SMOKE, player.getLocation(), 2, 0.1, 0.1, 0.1, 0.05);
+                if (plugin.getDataManager().isParticlesEnabled()) {
+                    player.getWorld().spawnParticle(Particle.LARGE_SMOKE, player.getLocation(), 1, 0.1, 0.1, 0.1, 0.02);
                 }
-                
-                ticks++;
             }
         }.runTaskTimer(plugin, 0L, 1L);
     }
 
-    private void revertFromBat(Player player) {
-        UUID uuid = player.getUniqueId();
-        BatTransformData data = activeTransform.remove(uuid);
-        
+    private void revertFromBat(Player player, MagicFruits plugin) {
+        BatTransformData data = activeBatTransform.remove(player.getUniqueId());
         if (data != null) {
             if (data.batEntity != null) data.batEntity.remove();
-            
             player.removePotionEffect(PotionEffectType.INVISIBILITY);
             player.setFlying(false);
             if (player.getGameMode() != GameMode.CREATIVE) player.setAllowFlight(false);
             
-            player.sendMessage("§8§l🦇 §fTransformation ended!");
+            createSpiralParticles(player.getLocation(), plugin);
+            player.sendMessage("§8§l🦇 §fReverted to Human form!");
             player.playSound(player.getLocation(), Sound.ENTITY_BAT_DEATH, 1.0f, 1.0f);
         }
     }
 
-    // Prevents player from taking damage while in bat form
-    @EventHandler
-    public void onDamage(EntityDamageByEntityEvent event) {
-        if (activeTransform.containsKey(event.getEntity().getUniqueId())) {
-            event.setCancelled(true);
+    private void createBloodParticles(Player player, MagicFruits plugin) {
+        new BukkitRunnable() {
+            int t = 0;
+            public void run() {
+                if (t++ > 75 || !activeBloodPhase.containsKey(player.getUniqueId())) { this.cancel(); return; }
+                player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0), 10, 0.5, 0.5, 0.5, 
+                    new Particle.DustOptions(Color.fromRGB(0x8B0000), 1.0f));
+            }
+        }.runTaskTimer(plugin, 0L, 4L);
+    }
+
+    private void createSpiralParticles(Location center, MagicFruits plugin) {
+        for (int i = 0; i < 360; i += 20) {
+            double rad = Math.toRadians(i);
+            center.getWorld().spawnParticle(Particle.PORTAL, center.clone().add(Math.cos(rad), 1, Math.sin(rad)), 5, 0, 0, 0, 0.1);
         }
     }
 
-    // Rest of your Blood Phase and Particle methods stay the same...
-    // (Ensure they are present in your final class)
+    @EventHandler
+    public void onHit(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player)) return;
+        Player p = (Player) event.getDamager();
+        UUID uuid = p.getUniqueId();
+
+        if (activeBloodPhase.containsKey(uuid)) {
+            int hits = hitCounter.getOrDefault(uuid, 0) + 1;
+            if (hits >= 3) {
+                p.setHealth(Math.min(p.getHealth() + 2, p.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue()));
+                p.sendMessage("§4§l🩸 §fLife Steal! +1 Heart");
+                hits = 0;
+            }
+            hitCounter.put(uuid, hits);
+        }
+    }
+
+    @EventHandler
+    public void onBite(PlayerInteractEvent event) {
+        Player p = event.getPlayer();
+        if (!activeBatTransform.containsKey(p.getUniqueId())) return;
+        if (!event.getAction().name().contains("LEFT_CLICK")) return;
+
+        long now = System.currentTimeMillis();
+        if (now - biteCooldown.getOrDefault(p.getUniqueId(), 0L) < 1000) return;
+
+        for (Entity e : p.getNearbyEntities(4, 4, 4)) {
+            if (e instanceof LivingEntity && !e.equals(p)) {
+                ((LivingEntity) e).damage(4.0, p);
+                p.setHealth(Math.min(p.getHealth() + 1, p.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue()));
+                p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_BURP, 1.0f, 1.2f);
+                p.sendMessage("§8§l🦇 §fBite! Healed 0.5 Heart.");
+                biteCooldown.put(p.getUniqueId(), now);
+                break;
+            }
+        }
+    }
 
     @Override
-    public String getPrimaryDescription() {
-        return "Blood Phase (15s, Strength + Speed boost, 45s cooldown)";
-    }
-    
+    public String getPrimaryDescription() { return "Blood Phase (15s, Heal on every 3rd hit, 45s CD)"; }
     @Override
-    public String getSecondaryDescription() {
-        return "Bat Transform (15s, become a bat and fly, 60s cooldown)";
-    }
+    public String getSecondaryDescription() { return "Bat Form (15s, Fly and Bite to heal, 60s CD)"; }
 }
