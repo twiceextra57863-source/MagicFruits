@@ -2,7 +2,7 @@ package com.example.magicfruits.abilities;
 
 import com.example.magicfruits.MagicFruits;
 import org.bukkit.*;
-import org.bukkit.attribute.Attribute; // Yeh line missing thi
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -182,8 +182,8 @@ public class DraculaBitesAbility implements Ability, Listener {
         if (activeBloodPhase.containsKey(uuid)) {
             int hits = hitCounter.getOrDefault(uuid, 0) + 1;
             if (hits >= 3) {
-                // Yahan Attribute variable use hota hai
-                double maxHealth = p.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+                // FIXED: GENERIC_MAX_HEALTH changed to MAX_HEALTH for 1.21+
+                double maxHealth = p.getAttribute(Attribute.MAX_HEALTH).getValue();
                 p.setHealth(Math.min(p.getHealth() + 2, maxHealth));
                 p.sendMessage("§4§l🩸 §fLife Steal! +1 Heart");
                 hits = 0;
@@ -204,7 +204,8 @@ public class DraculaBitesAbility implements Ability, Listener {
         for (Entity e : p.getNearbyEntities(4, 4, 4)) {
             if (e instanceof LivingEntity && !e.equals(p)) {
                 ((LivingEntity) e).damage(4.0, p);
-                double maxHealth = p.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+                // FIXED: GENERIC_MAX_HEALTH changed to MAX_HEALTH for 1.21+
+                double maxHealth = p.getAttribute(Attribute.MAX_HEALTH).getValue();
                 p.setHealth(Math.min(p.getHealth() + 1, maxHealth));
                 p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_BURP, 1.0f, 1.2f);
                 p.sendMessage("§8§l🦇 §fBite! Healed 0.5 Heart.");
@@ -218,4 +219,4 @@ public class DraculaBitesAbility implements Ability, Listener {
     public String getPrimaryDescription() { return "Blood Phase (15s, Heal on every 3rd hit, 45s CD)"; }
     @Override
     public String getSecondaryDescription() { return "Bat Form (15s, Fly and Bite to heal, 60s CD)"; }
-                    }
+}
