@@ -2,9 +2,9 @@ package com.example.magicfruits.abilities;
 
 import com.example.magicfruits.MagicFruits;
 import org.bukkit.*;
+import org.bukkit.attribute.Attribute; // Yeh line missing thi
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
-import org.bukkit.attribute.Attribute;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -51,7 +51,6 @@ public class DraculaBitesAbility implements Ability, Listener {
                 long now = System.currentTimeMillis();
                 activeBloodPhase.entrySet().removeIf(entry -> entry.getValue().expiryTime <= now);
                 
-                // Bat transform cleanup
                 activeBatTransform.forEach((uuid, data) -> {
                     if (data.expiryTime <= now) {
                         Player p = Bukkit.getPlayer(uuid);
@@ -109,13 +108,12 @@ public class DraculaBitesAbility implements Ability, Listener {
 
         if (activeBatTransform.containsKey(uuid)) return;
 
-        // Spawn actual Bat
         Bat bat = (Bat) player.getWorld().spawnEntity(player.getLocation(), EntityType.BAT);
         bat.setAwake(true);
         bat.setInvulnerable(true);
         bat.setSilent(true);
 
-        BatTransformData data = new BatTransformData(player, bat, System.currentTimeMillis() + 15000); // 15s
+        BatTransformData data = new BatTransformData(player, bat, System.currentTimeMillis() + 15000);
         activeBatTransform.put(uuid, data);
         batTransformCooldown.put(uuid, System.currentTimeMillis() + 60000);
 
@@ -124,7 +122,6 @@ public class DraculaBitesAbility implements Ability, Listener {
         player.setFlying(true);
 
         player.sendTitle("§8§l🦇 BAT FORM 🦇", "§eFly and Bite enemies!", 10, 40, 10);
-        player.sendMessage("§8§l🦇 §fControl with WASD/Mouse. Left-Click to Bite!");
 
         new BukkitRunnable() {
             @Override
@@ -135,7 +132,7 @@ public class DraculaBitesAbility implements Ability, Listener {
                 }
                 
                 bat.teleport(player.getLocation());
-                player.setVelocity(player.getLocation().getDirection().multiply(0.7)); // Fly speed
+                player.setVelocity(player.getLocation().getDirection().multiply(0.7));
 
                 if (plugin.getDataManager().isParticlesEnabled()) {
                     player.getWorld().spawnParticle(Particle.LARGE_SMOKE, player.getLocation(), 1, 0.1, 0.1, 0.1, 0.02);
@@ -185,7 +182,9 @@ public class DraculaBitesAbility implements Ability, Listener {
         if (activeBloodPhase.containsKey(uuid)) {
             int hits = hitCounter.getOrDefault(uuid, 0) + 1;
             if (hits >= 3) {
-                p.setHealth(Math.min(p.getHealth() + 2, p.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue()));
+                // Yahan Attribute variable use hota hai
+                double maxHealth = p.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+                p.setHealth(Math.min(p.getHealth() + 2, maxHealth));
                 p.sendMessage("§4§l🩸 §fLife Steal! +1 Heart");
                 hits = 0;
             }
@@ -205,7 +204,8 @@ public class DraculaBitesAbility implements Ability, Listener {
         for (Entity e : p.getNearbyEntities(4, 4, 4)) {
             if (e instanceof LivingEntity && !e.equals(p)) {
                 ((LivingEntity) e).damage(4.0, p);
-                p.setHealth(Math.min(p.getHealth() + 1, p.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue()));
+                double maxHealth = p.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+                p.setHealth(Math.min(p.getHealth() + 1, maxHealth));
                 p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_BURP, 1.0f, 1.2f);
                 p.sendMessage("§8§l🦇 §fBite! Healed 0.5 Heart.");
                 biteCooldown.put(p.getUniqueId(), now);
@@ -218,4 +218,4 @@ public class DraculaBitesAbility implements Ability, Listener {
     public String getPrimaryDescription() { return "Blood Phase (15s, Heal on every 3rd hit, 45s CD)"; }
     @Override
     public String getSecondaryDescription() { return "Bat Form (15s, Fly and Bite to heal, 60s CD)"; }
-}
+                    }
