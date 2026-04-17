@@ -3,6 +3,7 @@ package com.example.magicfruits.managers;
 import com.example.magicfruits.FruitType;
 import com.example.magicfruits.MagicFruits;
 import net.kyori.adventure.text.Component;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -15,16 +16,16 @@ public class CooldownManager {
     private final MagicFruits plugin;
     private final Map<UUID, Map<FruitType, Map<String, Long>>> cooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, Map<FruitType, Map<String, Integer>>> activeTasks = new ConcurrentHashMap<>();
-    
-    // Naya feature: Portal fruit ka state track karne ke liye
     private final Map<UUID, Boolean> portalFirstClick = new ConcurrentHashMap<>();
+    
+    // Message spam rokne ke liye
+    private final Map<UUID, Long> lastMessageTime = new ConcurrentHashMap<>();
     
     public CooldownManager(MagicFruits plugin) {
         this.plugin = plugin;
     }
     
     public boolean isOnCooldown(UUID playerId, FruitType fruit, String abilityType) {
-        // PORTAL FRUIT SPECIAL HANDLING: Pehla click kabhi cooldown mein nahi hoga
         if (fruit == FruitType.PORTAL_FRUIT && abilityType.equals("primary")) {
             if (portalFirstClick.getOrDefault(playerId, true)) {
                 return false; 
@@ -36,11 +37,11 @@ public class CooldownManager {
         Map<String, Long> abilityCooldowns = playerCooldowns.get(fruit);
         if (abilityCooldowns == null) return false;
         Long cooldownEnd = abilityCooldowns.get(abilityType);
+        
         if (cooldownEnd == null) return false;
 
         boolean onCooldown = cooldownEnd > System.currentTimeMillis();
         
-        // Agar cooldown khatam ho gaya, toh portal flag reset kar do
         if (!onCooldown && fruit == FruitType.PORTAL_FRUIT) {
             portalFirstClick.put(playerId, true);
         }
@@ -48,7 +49,6 @@ public class CooldownManager {
         return onCooldown;
     }
     
-    // PUBLIC rakha hai taaki StealGUI/ThiefAbility se error na aaye
     public void setCooldown(UUID playerId, FruitType fruit, String abilityType) {
         Map<FruitType, Map<String, Long>> playerCooldowns = cooldowns.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>());
         Map<String, Long> abilityCooldowns = playerCooldowns.computeIfAbsent(fruit, k -> new ConcurrentHashMap<>());
@@ -56,13 +56,15 @@ public class CooldownManager {
     }
     
     public void startCooldown(UUID playerId, FruitType fruit, String abilityType) {
-        // Portal fruit logic: Pehle click pe cooldown display start nahi hoga
+        // FIX 1: Agar pehle se cooldown active hai toh dubara start mat karo (Spam Fix)
+        if (isOnCooldown(playerId, fruit, abilityType)) return;
+
         if (fruit == FruitType.PORTAL_FRUIT && abilityType.equals("primary")) {
             if (portalFirstClick.getOrDefault(playerId, true)) {
-                portalFirstClick.put(playerId, false); // Agle click ke liye flag set kiya
+                portalFirstClick.put(playerId, false);
                 Player p = plugin.getServer().getPlayer(playerId);
                 if (p != null) p.sendActionBar(Component.text("§b§l⚡ PORTAL READY!"));
-                return; // Cooldown timer start nahi hoga
+                return;
             }
         }
 
@@ -79,24 +81,24 @@ public class CooldownManager {
         }
         
         int taskId = new BukkitRunnable() {
-            int secondsLeft = plugin.getDataManager().getCooldownTime();
+            final int totalSeconds = plugin.getDataManager().getCooldownTime();
+            int secondsLeft = totalSeconds;
             
             @Override
             public void run() {
                 Player player = plugin.getServer().getPlayer(playerId);
-                if (player == null) {
+                if (player == null || !player.isOnline()) {
                     this.cancel();
                     return;
                 }
                 
-                if (secondsLeft <= 0 || !isOnCooldown(playerId, fruit, abilityType)) {
+                if (secondsLeft <= 0) {
                     player.setExp(0);
                     player.setLevel(0);
                     if (plugin.getDataManager().isSoundsEnabled()) {
-                        player.playSound(player.getLocation(), org.bukkit.Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 2.0f);
+                        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 2.0f);
                     }
                     
-                    // Portal reset
                     if (fruit == FruitType.PORTAL_FRUIT) {
                         portalFirstClick.put(playerId, true);
                     }
@@ -104,13 +106,16 @@ public class CooldownManager {
                     String abilityName = abilityType.equals("primary") ? "Primary" : "Secondary";
                     player.sendActionBar(Component.text("§a§l✓ §f" + fruit.getDisplayName() + " §a§l" + abilityName + " READY!"));
                     
-                    Map<String, Integer> tasks = activeTasks.get(playerId).get(fruit);
-                    if (tasks != null) tasks.remove(abilityType);
                     this.cancel();
                     return;
                 }
                 
-                showCooldownOnXPBar(player, secondsLeft, fruit, abilityType);
+                // FIX 2: Smooth Toggle Bar logic (XP bar full se empty ghatega)
+                float progress = (float) secondsLeft / totalSeconds;
+                player.setExp(Math.max(0, Math.min(1.0f, progress)));
+                player.setLevel(secondsLeft);
+                
+                showCooldownActionBar(player, secondsLeft, fruit, abilityType);
                 secondsLeft--;
             }
         }.runTaskTimer(plugin, 0L, 20L).getTaskId();
@@ -118,46 +123,38 @@ public class CooldownManager {
         abilityTasks.put(abilityType, taskId);
     }
     
-    public void showCooldownOnXPBar(Player player, int secondsLeft, FruitType fruit, String abilityType) {
-        float progress = (float) secondsLeft / (float) plugin.getDataManager().getCooldownTime();
-        player.setExp(progress);
-        player.setLevel(secondsLeft);
-        
+    // Separate method for action bar logic to keep it clean
+    private void showCooldownActionBar(Player player, int secondsLeft, FruitType fruit, String abilityType) {
         String abilityName = abilityType.equals("primary") ? "Primary" : "Secondary";
-        String message = "§c§l⏳ §f" + fruit.getDisplayName() + " (" + abilityName + ") §c§lCOOLDOWN: §e" + secondsLeft + "s";
+        String color = (secondsLeft <= 5) ? "§c§l" : (secondsLeft <= 10 ? "§6§l" : "§e§l");
+        String icon = (secondsLeft <= 5) ? "§c§l⚠" : "§6§l⏳";
         
-        if (secondsLeft <= 5) {
-            message = "§c§l⚠ §f" + fruit.getDisplayName() + " (" + abilityName + ") §c§lREADY IN: §e" + secondsLeft + "s §c§l⚠";
-        } else if (secondsLeft <= 10) {
-            message = "§6§l⌛ §f" + fruit.getDisplayName() + " (" + abilityName + ") §6§lCOOLDOWN: §e" + secondsLeft + "s";
-        }
-        
-        player.sendActionBar(Component.text(message));
+        player.sendActionBar(Component.text(icon + " §f" + fruit.getDisplayName() + " (" + abilityName + ") " + color + "COOLDOWN: " + secondsLeft + "s"));
     }
     
     public void showCooldownMessage(Player player, FruitType fruit, String abilityType) {
-        Map<FruitType, Map<String, Long>> playerCooldowns = cooldowns.get(player.getUniqueId());
-        if (playerCooldowns == null) return;
-        Map<String, Long> abilityCooldowns = playerCooldowns.get(fruit);
-        if (abilityCooldowns == null) return;
-        Long cooldownEnd = abilityCooldowns.get(abilityType);
-        if (cooldownEnd == null) return;
+        UUID uuid = player.getUniqueId();
+        long now = System.currentTimeMillis();
         
-        long timeLeft = cooldownEnd - System.currentTimeMillis();
-        long secondsLeft = timeLeft / 1000;
-        String abilityName = abilityType.equals("primary") ? "Primary" : "Secondary";
-        player.sendMessage("§c§l⚠ §f" + fruit.getDisplayName() + " (" + abilityName + ") on cooldown! §7(" + secondsLeft + " seconds remaining)");
+        // FIX 3: Message Throttling (2.5 seconds se pehle dobara message nahi jayega)
+        if (now - lastMessageTime.getOrDefault(uuid, 0L) < 2500) return;
+
+        int secondsLeft = getRemainingSeconds(uuid, fruit, abilityType);
+        if (secondsLeft > 0) {
+            String abilityName = abilityType.equals("primary") ? "Primary" : "Secondary";
+            player.sendMessage(Component.text("§c§l⚠ §f" + fruit.getDisplayName() + " (" + abilityName + ") on cooldown! §7(" + secondsLeft + "s left)"));
+            lastMessageTime.put(uuid, now);
+        }
     }
     
     public int getRemainingSeconds(UUID playerId, FruitType fruit, String abilityType) {
-        Map<FruitType, Map<String, Long>> playerCooldowns = cooldowns.get(playerId);
-        if (playerCooldowns == null) return 0;
-        Map<String, Long> abilityCooldowns = playerCooldowns.get(fruit);
-        if (abilityCooldowns == null) return 0;
-        Long cooldownEnd = abilityCooldowns.get(abilityType);
-        if (cooldownEnd == null) return 0;
-        long timeLeft = cooldownEnd - System.currentTimeMillis();
-        return (int) Math.max(0, timeLeft / 1000);
+        Map<FruitType, Map<String, Long>> pCd = cooldowns.get(playerId);
+        if (pCd == null) return 0;
+        Map<String, Long> aCd = pCd.get(fruit);
+        if (aCd == null) return 0;
+        Long end = aCd.get(abilityType);
+        if (end == null) return 0;
+        return (int) Math.max(0, Math.ceil((end - System.currentTimeMillis()) / 1000.0));
     }
     
     public void startCleanupTask() {
@@ -169,9 +166,9 @@ public class CooldownManager {
                     fruitMap.forEach((fruit, abilityMap) -> {
                         abilityMap.entrySet().removeIf(entry -> entry.getValue() <= currentTime);
                     });
-                    fruitMap.entrySet().removeIf(entry -> entry.getValue().isEmpty());
                 });
-                cooldowns.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+                // Message map cleanup
+                lastMessageTime.entrySet().removeIf(entry -> currentTime - entry.getValue() > 10000);
             }
         }.runTaskTimer(plugin, 1200L, 1200L);
     }
