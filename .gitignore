@@ -1,0 +1,9 @@
+target/
+*.log
+.DS_Store
+.idea/
+*.class
+*.jar
+*.war
+*.zip
+*.tar.gz

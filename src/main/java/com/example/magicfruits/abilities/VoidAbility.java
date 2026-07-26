@@ -120,7 +120,7 @@ public class VoidAbility implements Ability {
                         double y = 0.8 + Math.sin(rad * 2) * 0.4;
                         Location hLoc = loc.clone().add(x, y, z);
                         if (plugin.getDataManager().isParticlesEnabled()) {
-                            hLoc.getWorld().spawnParticle(Particle.SPELL_WITCH, hLoc, 0, 0, 0, 0, 2);
+                            hLoc.getWorld().spawnParticle(Particle.WITCH, hLoc, 0, 0, 0, 0, 2);
                         }
                     }
                 }
@@ -197,8 +197,8 @@ public class VoidAbility implements Ability {
                         Location boltStart = center.clone().add(xL, 0.2, zL);
                         Location boltEnd = center.clone().add(xL * 1.5, 1.0 + Math.random(), zL * 1.5);
                         if (plugin.getDataManager().isParticlesEnabled()) {
-                            boltStart.getWorld().spawnParticle(Particle.SPELL_WITCH, boltStart, 0, 0, 0, 0, 2);
-                            boltEnd.getWorld().spawnParticle(Particle.SPELL_WITCH, boltEnd, 0, 0, 0, 0, 2);
+                            boltStart.getWorld().spawnParticle(Particle.WITCH, boltStart, 0, 0, 0, 0, 2);
+                            boltEnd.getWorld().spawnParticle(Particle.WITCH, boltEnd, 0, 0, 0, 0, 2);
                         }
                     }
                 }
