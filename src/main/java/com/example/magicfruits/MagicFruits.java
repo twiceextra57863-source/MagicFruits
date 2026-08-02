@@ -1,7 +1,6 @@
 package com.example.magicfruits;
 
 import com.example.magicfruits.abilities.Ability;
-import com.example.magicfruits.abilities.PortalAbility;
 import com.example.magicfruits.gui.AdminGUI;
 import com.example.magicfruits.managers.*;
 import org.bukkit.entity.Player;
@@ -51,7 +50,6 @@ public final class MagicFruits extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(adminGUI, this);
         getServer().getPluginManager().registerEvents(new com.example.magicfruits.gui.StealGUI(this), this);
         getServer().getPluginManager().registerEvents(new com.example.magicfruits.gui.FruitMenuGUI(this), this);
-        getServer().getPluginManager().registerEvents(new PortalAbility(), this);
         
         // Register commands
         getCommand("magicfruits").setExecutor(commandHandler);

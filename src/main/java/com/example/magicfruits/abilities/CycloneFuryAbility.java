@@ -23,7 +23,7 @@ public class CycloneFuryAbility implements Ability, Listener {
     
     private static class TornadoData {
         Location center;
-        List<Block> floatingBlocks;
+        List<Material> floatingBlocks;
         List<Entity> trappedEntities;
         int duration;
         int ticks;
@@ -202,12 +202,6 @@ public class CycloneFuryAbility implements Ability, Listener {
             @Override
             public void run() {
                 if (!activeTornadoes.containsKey(uuid) || ticks >= 200) {
-                    // Cleanup floating blocks
-                    for (Block block : tornado.floatingBlocks) {
-                        if (block != null && block.getType() != Material.AIR) {
-                            block.setType(Material.AIR);
-                        }
-                    }
                     activeTornadoes.remove(uuid);
                     blockCount.remove(uuid);
                     player.sendMessage("§c§l⚠ §fThe tornado has dissipated!");
@@ -228,8 +222,8 @@ public class CycloneFuryAbility implements Ability, Listener {
                 // Rotate and animate floating blocks
                 if (plugin.getDataManager().isParticlesEnabled()) {
                     for (int i = 0; i < tornado.floatingBlocks.size(); i++) {
-                        Block block = tornado.floatingBlocks.get(i);
-                        if (block != null && block.getType() != Material.AIR) {
+                        Material mat = tornado.floatingBlocks.get(i);
+                        if (mat != null && mat != Material.AIR) {
                             double angle = Math.toRadians(ticks * 5 + i * 15);
                             double radius = 3 + (i * 0.1);
                             double x = Math.cos(angle) * radius;
@@ -237,15 +231,15 @@ public class CycloneFuryAbility implements Ability, Listener {
                             double y = 1 + (i * 0.2) + (Math.sin(ticks * 0.1) * 0.5);
                             
                             Location blockLoc = tornado.center.clone().add(x, y, z);
-                            block.getWorld().spawnParticle(Particle.CLOUD, blockLoc, 5, 0.1, 0.1, 0.1, 0.05);
-                            block.getWorld().spawnParticle(Particle.SWEEP_ATTACK, blockLoc, 3, 0.1, 0.1, 0.1, 0.05);
+                            blockLoc.getWorld().spawnParticle(Particle.BLOCK, blockLoc, 4, 0.1, 0.1, 0.1, 0.05, Bukkit.createBlockData(mat));
+                            blockLoc.getWorld().spawnParticle(Particle.CLOUD, blockLoc, 2, 0.1, 0.1, 0.1, 0.02);
                         }
                     }
                 }
                 
-                // Suck in nearby entities
+                // Suck in nearby entities (players and mobs only)
                 for (Entity entity : tornado.center.getWorld().getNearbyEntities(tornado.center, 8, 8, 8)) {
-                    if (entity instanceof LivingEntity && !entity.equals(player)) {
+                    if ((entity instanceof Player || entity instanceof Mob) && !entity.equals(player)) {
                         LivingEntity target = (LivingEntity) entity;
                         
                         // Pull towards tornado center and rotate
@@ -282,12 +276,13 @@ public class CycloneFuryAbility implements Ability, Listener {
                     Material type = block.getType();
                     
                     // Collect non-air, non-bedrock blocks
-                    if (type != Material.AIR && type != Material.BEDROCK && type != Material.WATER && type != Material.LAVA) {
-                        if (!tornado.floatingBlocks.contains(block)) {
-                            tornado.floatingBlocks.add(block);
+                    if (type != Material.AIR && type != Material.BEDROCK && type != Material.WATER && type != Material.LAVA && type.isSolid()) {
+                        if (!tornado.floatingBlocks.contains(type)) {
+                            tornado.floatingBlocks.add(type);
                             
                             if (plugin.getDataManager().isParticlesEnabled()) {
-                                block.getWorld().spawnParticle(Particle.CLOUD, block.getLocation().add(0.5, 0.5, 0.5), 20, 0.3, 0.3, 0.3, 0.1);
+                                block.getWorld().spawnParticle(Particle.BLOCK, block.getLocation().add(0.5, 0.5, 0.5), 20, 0.3, 0.3, 0.3, 0.1, Bukkit.createBlockData(type));
+                                block.getWorld().spawnParticle(Particle.CLOUD, block.getLocation().add(0.5, 0.5, 0.5), 10, 0.3, 0.3, 0.3, 0.05);
                             }
                             
                             collected++;
@@ -326,20 +321,21 @@ public class CycloneFuryAbility implements Ability, Listener {
             Location targetLoc = targetBlock.getLocation();
             MagicFruits plugin = MagicFruits.getInstance();
             
-            // Slam the first block
-            Block block = tornado.floatingBlocks.remove(0);
-            if (block != null && block.getType() != Material.AIR) {
+            // Slam the first block material
+            Material mat = tornado.floatingBlocks.remove(0);
+            if (mat != null && mat != Material.AIR) {
                 // Create slamming effect
-                for (int i = 0; i < 10; i++) {
+                for (int i = 0; i < 15; i++) {
                     double x = targetLoc.getX() + (Math.random() - 0.5) * 2;
                     double z = targetLoc.getZ() + (Math.random() - 0.5) * 2;
+                    targetLoc.getWorld().spawnParticle(Particle.BLOCK, x, targetLoc.getY() + 1, z, 10, 0.2, 0.2, 0.2, 0.1, Bukkit.createBlockData(mat));
                     targetLoc.getWorld().spawnParticle(Particle.EXPLOSION, x, targetLoc.getY() + 1, z, 1, 0, 0, 0, 0);
                     targetLoc.getWorld().spawnParticle(Particle.CLOUD, x, targetLoc.getY() + 1, z, 5, 0.2, 0.2, 0.2, 0.05);
                 }
                 
-                // Damage entities in the area
+                // Damage entities in the area (players and mobs only)
                 for (Entity entity : targetLoc.getWorld().getNearbyEntities(targetLoc, 3, 3, 3)) {
-                    if (entity instanceof LivingEntity && !entity.equals(player)) {
+                    if ((entity instanceof Player || entity instanceof Mob) && !entity.equals(player)) {
                         LivingEntity target = (LivingEntity) entity;
                         target.damage(8, player);
                         target.setVelocity(new Vector(0, 0.5, 0));
@@ -356,9 +352,6 @@ public class CycloneFuryAbility implements Ability, Listener {
                 }
                 
                 player.sendMessage("§b§l🌪️ §fYou slammed a block at the target!");
-                
-                // Remove block from world
-                block.setType(Material.AIR);
             }
         }
     }

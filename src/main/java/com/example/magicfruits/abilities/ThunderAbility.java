@@ -22,7 +22,17 @@ public class ThunderAbility implements Ability {
             // Secondary ability: Lightning strike
             Block targetBlock = player.getTargetBlock(null, 50);
             if (targetBlock != null) {
-                player.getWorld().strikeLightning(targetBlock.getLocation());
+                org.bukkit.Location strikeLoc = targetBlock.getLocation();
+                player.getWorld().strikeLightning(strikeLoc);
+
+                if (plugin.getDataManager().isParticlesEnabled()) {
+                    // Epic customized lightning blast particles
+                    player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, strikeLoc, 150, 2, 2, 2, 0.5);
+                    player.getWorld().spawnParticle(Particle.CLOUD, strikeLoc, 50, 1, 2, 1, 0.1);
+                    player.getWorld().spawnParticle(Particle.EXPLOSION, strikeLoc, 5, 0.5, 0.5, 0.5, 0);
+                    player.getWorld().spawnParticle(Particle.FLASH, strikeLoc, 10, 1, 1, 1, 0);
+                }
+
                 if (plugin.getDataManager().isSoundsEnabled()) {
                     player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.0f);
                 }
@@ -32,10 +42,6 @@ public class ThunderAbility implements Ability {
             // Primary ability: Conduit Power + Dolphin's Grace
             player.addPotionEffect(new PotionEffect(PotionEffectType.CONDUIT_POWER, 300, 1));
             player.addPotionEffect(new PotionEffect(PotionEffectType.DOLPHINS_GRACE, 400, 1));
-            
-            if (plugin.getDataManager().isParticlesEnabled()) {
-                player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, player.getLocation(), 100, 1, 1, 1, 0.2);
-            }
             
             if (plugin.getDataManager().isSoundsEnabled()) {
                 player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.0f, 1.0f);
@@ -48,6 +54,35 @@ public class ThunderAbility implements Ability {
             ));
             
             player.sendMessage("§3§l⚡ §fThe power of storms flows through your veins!");
+
+            // Run storm aura animation
+            if (plugin.getDataManager().isParticlesEnabled()) {
+                new org.bukkit.scheduler.BukkitRunnable() {
+                    int ticks = 0;
+                    @Override
+                    public void run() {
+                        if (ticks >= 100 || !player.isOnline()) { // 5 seconds
+                            this.cancel();
+                            return;
+                        }
+
+                        org.bukkit.Location loc = player.getLocation();
+                        // Crackling ring on the ground
+                        double radius = 1.2;
+                        double angle = ticks * 0.4;
+                        double x = Math.cos(angle) * radius;
+                        double z = Math.sin(angle) * radius;
+                        loc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, loc.clone().add(x, 0.2, z), 2, 0, 0, 0, 0.05);
+
+                        // Spiral electric helix ascending
+                        double y = (ticks % 20) * 0.1;
+                        loc.getWorld().spawnParticle(Particle.CRIT, loc.clone().add(z, y, x), 2, 0.1, 0.1, 0.1, 0.05);
+                        loc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, loc.clone().add(x, y, z), 1, 0, 0, 0, 0.02);
+
+                        ticks++;
+                    }
+                }.runTaskTimer(plugin, 0L, 1L);
+            }
         }
     }
     
