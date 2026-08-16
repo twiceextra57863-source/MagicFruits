@@ -1,9 +1,50 @@
-target/
-*.log
-.DS_Store
-.idea/
+```
+# Compiled and build artifacts
 *.class
-*.jar
-*.war
-*.zip
-*.tar.gz
+*.o
+*.obj
+*.out
+build/
+target/
+
+# Dependencies
+.gradle/
+lib/
+vendor/
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Python specific (if applicable)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.mypy_cache/
+.pytest_cache/
+```

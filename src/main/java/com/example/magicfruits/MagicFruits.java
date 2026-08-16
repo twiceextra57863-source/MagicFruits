@@ -3,6 +3,9 @@ package com.example.magicfruits;
 import com.example.magicfruits.abilities.Ability;
 import com.example.magicfruits.gui.AdminGUI;
 import com.example.magicfruits.managers.*;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -14,7 +17,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class MagicFruits extends JavaPlugin implements Listener {
@@ -28,6 +33,11 @@ public final class MagicFruits extends JavaPlugin implements Listener {
     private GracePeriodManager gracePeriodManager;
     private Map<UUID, Ability> stolenAbilities = new HashMap<>();
     private Map<UUID, Long> stolenAbilityExpiry = new HashMap<>();
+    
+    // MagicWand region protection system
+    private Map<UUID, Location> wandFirstSelection = new HashMap<>();
+    private Map<UUID, Location> wandSecondSelection = new HashMap<>();
+    private Set<String> protectedRegions = new HashSet<>(); // Store region IDs as "x1,y1,z1-x2,y2,z2"
     
     @Override
     public void onEnable() {
@@ -54,6 +64,8 @@ public final class MagicFruits extends JavaPlugin implements Listener {
         // Register commands
         getCommand("magicfruits").setExecutor(commandHandler);
         getCommand("magicfruits").setTabCompleter(commandHandler);
+        getCommand("magicwand").setExecutor(commandHandler);
+        getCommand("magicwand").setTabCompleter(commandHandler);
         
         // Start cleanup tasks
         cooldownManager.startCleanupTask();
@@ -122,13 +134,58 @@ public final class MagicFruits extends JavaPlugin implements Listener {
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         Action action = event.getAction();
+        Player player = event.getPlayer();
+        ItemStack item = player.getInventory().getItemInMainHand();
+        
+        // Check for Magic Wand clicks
+        if (item != null && item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
+            String displayName = item.getItemMeta().getDisplayName();
+            if (displayName != null && displayName.contains("MAGIC WAND")) {
+                if (!player.hasPermission("magicfruits.admin")) {
+                    return;
+                }
+                
+                if (action == Action.RIGHT_CLICK_AIR || action == Action.RIGHT_CLICK_BLOCK) {
+                    event.setCancelled(true);
+                    setWandFirstSelection(player.getUniqueId(), player.getLocation());
+                    player.sendMessage("§d§l✨ §fFirst selection set at §e" + 
+                        player.getLocation().getBlockX() + ", " + 
+                        player.getLocation().getBlockY() + ", " + 
+                        player.getLocation().getBlockZ());
+                    return;
+                }
+                
+                if (action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK) {
+                    event.setCancelled(true);
+                    setWandSecondSelection(player.getUniqueId(), player.getLocation());
+                    player.sendMessage("§d§l✨ §fSecond selection set at §e" + 
+                        player.getLocation().getBlockX() + ", " + 
+                        player.getLocation().getBlockY() + ", " + 
+                        player.getLocation().getBlockZ());
+                    
+                    if (hasCompleteSelection(player.getUniqueId())) {
+                        Location loc1 = getWandFirstSelection(player.getUniqueId());
+                        Location loc2 = getWandSecondSelection(player.getUniqueId());
+                        if (loc1 != null && loc2 != null && loc1.getWorld().equals(loc2.getWorld())) {
+                            player.sendMessage("§a§l✓ §fSelection complete! Use §e/magicwand protect §for §e/magicwand break");
+                        }
+                    }
+                    return;
+                }
+            }
+        }
         
         if (action == Action.RIGHT_CLICK_AIR || action == Action.RIGHT_CLICK_BLOCK) {
-            Player player = event.getPlayer();
-            ItemStack item = player.getInventory().getItemInMainHand();
             FruitType fruit = FruitType.fromItem(item);
             
             if (fruit != null) {
+                // Check if location is protected
+                if (isLocationProtected(player.getLocation())) {
+                    player.sendMessage("§c§l⚠ §fFruits are disabled in this protected area!");
+                    event.setCancelled(true);
+                    return;
+                }
+                
                 event.setCancelled(true);
                 
                 // Check stolen ability
@@ -169,6 +226,76 @@ public final class MagicFruits extends JavaPlugin implements Listener {
     public void removeStolenAbility(UUID playerId) {
         stolenAbilities.remove(playerId);
         stolenAbilityExpiry.remove(playerId);
+    }
+    
+    // MagicWand region protection methods
+    public Location getWandFirstSelection(UUID playerId) {
+        return wandFirstSelection.get(playerId);
+    }
+    
+    public void setWandFirstSelection(UUID playerId, Location loc) {
+        wandFirstSelection.put(playerId, loc);
+    }
+    
+    public Location getWandSecondSelection(UUID playerId) {
+        return wandSecondSelection.get(playerId);
+    }
+    
+    public void setWandSecondSelection(UUID playerId, Location loc) {
+        wandSecondSelection.put(playerId, loc);
+    }
+    
+    public void clearWandSelections(UUID playerId) {
+        wandFirstSelection.remove(playerId);
+        wandSecondSelection.remove(playerId);
+    }
+    
+    public boolean hasCompleteSelection(UUID playerId) {
+        return wandFirstSelection.containsKey(playerId) && wandSecondSelection.containsKey(playerId);
+    }
+    
+    public String createRegionKey(Location loc1, Location loc2) {
+        int x1 = Math.min(loc1.getBlockX(), loc2.getBlockX());
+        int y1 = Math.min(loc1.getBlockY(), loc2.getBlockY());
+        int z1 = Math.min(loc1.getBlockZ(), loc2.getBlockZ());
+        int x2 = Math.max(loc1.getBlockX(), loc2.getBlockX());
+        int y2 = Math.max(loc1.getBlockY(), loc2.getBlockY());
+        int z2 = Math.max(loc1.getBlockZ(), loc2.getBlockZ());
+        return x1 + "," + y1 + "," + z1 + "-" + x2 + "," + y2 + "," + z2;
+    }
+    
+    public void protectRegion(Location loc1, Location loc2) {
+        String regionKey = createRegionKey(loc1, loc2);
+        protectedRegions.add(regionKey);
+    }
+    
+    public void unprotectRegion(Location loc1, Location loc2) {
+        String regionKey = createRegionKey(loc1, loc2);
+        protectedRegions.remove(regionKey);
+    }
+    
+    public boolean isLocationProtected(Location loc) {
+        int x = loc.getBlockX();
+        int y = loc.getBlockY();
+        int z = loc.getBlockZ();
+        
+        for (String region : protectedRegions) {
+            String[] parts = region.split("-");
+            String[] min = parts[0].split(",");
+            String[] max = parts[1].split(",");
+            
+            int x1 = Integer.parseInt(min[0]);
+            int y1 = Integer.parseInt(min[1]);
+            int z1 = Integer.parseInt(min[2]);
+            int x2 = Integer.parseInt(max[0]);
+            int y2 = Integer.parseInt(max[1]);
+            int z2 = Integer.parseInt(max[2]);
+            
+            if (x >= x1 && x <= x2 && y >= y1 && y <= y2 && z >= z1 && z <= z2) {
+                return true;
+            }
+        }
+        return false;
     }
     
     public DataManager getDataManager() { return dataManager; }

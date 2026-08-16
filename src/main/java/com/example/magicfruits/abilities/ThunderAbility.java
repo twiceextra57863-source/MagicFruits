@@ -3,26 +3,50 @@ package com.example.magicfruits.abilities;
 import com.example.magicfruits.MagicFruits;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
+import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Vector;
 
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public class ThunderAbility implements Ability {
+    
+    private final Map<UUID, Long> lightningCooldown = new HashMap<>();
+    private static final long LIGHTNING_COOLDOWN_MS = 10000; // 10 seconds cooldown
     
     @Override
     public void execute(Player player, boolean isSecondary) {
         MagicFruits plugin = MagicFruits.getInstance();
         
         if (isSecondary) {
-            // Secondary ability: Lightning strike
+            // Secondary ability: Lightning strike with cooldown
+            UUID uuid = player.getUniqueId();
+            long now = System.currentTimeMillis();
+            
+            // Check cooldown
+            if (lightningCooldown.containsKey(uuid)) {
+                long lastUse = lightningCooldown.get(uuid);
+                if (now - lastUse < LIGHTNING_COOLDOWN_MS) {
+                    long remaining = (LIGHTNING_COOLDOWN_MS - (now - lastUse)) / 1000;
+                    player.sendMessage("§c§l⚠ §fLightning Strike on cooldown! §7(" + remaining + " seconds remaining)");
+                    return;
+                }
+            }
+            
+            lightningCooldown.put(uuid, now);
+            
             Block targetBlock = player.getTargetBlock(null, 50);
             if (targetBlock != null) {
-                org.bukkit.Location strikeLoc = targetBlock.getLocation();
+                Location strikeLoc = targetBlock.getLocation();
                 player.getWorld().strikeLightning(strikeLoc);
 
                 if (plugin.getDataManager().isParticlesEnabled()) {
@@ -31,6 +55,31 @@ public class ThunderAbility implements Ability {
                     player.getWorld().spawnParticle(Particle.CLOUD, strikeLoc, 50, 1, 2, 1, 0.1);
                     player.getWorld().spawnParticle(Particle.EXPLOSION, strikeLoc, 5, 0.5, 0.5, 0.5, 0);
                     player.getWorld().spawnParticle(Particle.FLASH, strikeLoc, 10, 1, 1, 1, 0);
+                    
+                    // Spiral animated particles around the struck location
+                    new BukkitRunnable() {
+                        int ticks = 0;
+                        @Override
+                        public void run() {
+                            if (ticks >= 40 || !player.isOnline()) {
+                                this.cancel();
+                                return;
+                            }
+                            
+                            double angle = ticks * 18; // 18 degrees per tick for spiral
+                            double radius = 0.8 + Math.sin(ticks * 0.3) * 0.3;
+                            double x = Math.cos(Math.toRadians(angle)) * radius;
+                            double z = Math.sin(Math.toRadians(angle)) * radius;
+                            double y = (ticks % 20) * 0.15;
+                            
+                            strikeLoc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, 
+                                strikeLoc.clone().add(x, y, z), 3, 0.1, 0.1, 0.1, 0.02);
+                            strikeLoc.getWorld().spawnParticle(Particle.CRIT, 
+                                strikeLoc.clone().add(-x, y + 0.5, -z), 2, 0.1, 0.1, 0.1, 0.05);
+                            
+                            ticks++;
+                        }
+                    }.runTaskTimer(plugin, 0L, 1L);
                 }
 
                 if (plugin.getDataManager().isSoundsEnabled()) {
@@ -66,7 +115,7 @@ public class ThunderAbility implements Ability {
                             return;
                         }
 
-                        org.bukkit.Location loc = player.getLocation();
+                        Location loc = player.getLocation();
                         // Crackling ring on the ground
                         double radius = 1.2;
                         double angle = ticks * 0.4;
@@ -93,6 +142,6 @@ public class ThunderAbility implements Ability {
     
     @Override
     public String getSecondaryDescription() {
-        return "Strike down lightning from the sky";
+        return "Strike down lightning from the sky (10s cooldown)";
     }
 }
