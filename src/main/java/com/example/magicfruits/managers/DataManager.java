@@ -15,6 +15,10 @@ public class DataManager {
     // Settings
     private boolean firstJoinReward = true;
     private boolean dropOnDeath = true;
+    private boolean allowStorage = false;
+    private boolean allowDrop = false;
+    private String deathDropMode = "PVP_ONLY";
+    private int natureHookDuration = 5;
     private int cooldownTime = 30;
     private int spinDuration = 15;
     private boolean particlesEnabled = true;
@@ -28,6 +32,10 @@ public class DataManager {
         FileConfiguration config = plugin.getConfig();
         firstJoinReward = config.getBoolean("settings.first-join-reward", true);
         dropOnDeath = config.getBoolean("settings.drop-on-death", true);
+        allowStorage = config.getBoolean("settings.allow-storage", false);
+        allowDrop = config.getBoolean("settings.allow-drop", false);
+        deathDropMode = config.getString("settings.death-drop-mode", "PVP_ONLY").toUpperCase();
+        natureHookDuration = config.getInt("settings.nature-hook-duration-seconds", 5);
         cooldownTime = config.getInt("settings.cooldown-seconds", 30);
         spinDuration = config.getInt("settings.spin-duration-seconds", 15);
         particlesEnabled = config.getBoolean("settings.particles-enabled", true);
@@ -38,6 +46,10 @@ public class DataManager {
         FileConfiguration config = plugin.getConfig();
         config.set("settings.first-join-reward", firstJoinReward);
         config.set("settings.drop-on-death", dropOnDeath);
+        config.set("settings.allow-storage", allowStorage);
+        config.set("settings.allow-drop", allowDrop);
+        config.set("settings.death-drop-mode", deathDropMode);
+        config.set("settings.nature-hook-duration-seconds", natureHookDuration);
         config.set("settings.cooldown-seconds", cooldownTime);
         config.set("settings.spin-duration-seconds", spinDuration);
         config.set("settings.particles-enabled", particlesEnabled);
@@ -114,6 +126,18 @@ public class DataManager {
     
     public boolean isDropOnDeath() { return dropOnDeath; }
     public void setDropOnDeath(boolean value) { this.dropOnDeath = value; saveSettings(); }
+
+    public boolean isAllowStorage() { return allowStorage; }
+    public void setAllowStorage(boolean value) { this.allowStorage = value; saveSettings(); }
+
+    public boolean isAllowDrop() { return allowDrop; }
+    public void setAllowDrop(boolean value) { this.allowDrop = value; saveSettings(); }
+
+    public String getDeathDropMode() { return deathDropMode; }
+    public void setDeathDropMode(String mode) { this.deathDropMode = mode; saveSettings(); }
+
+    public int getNatureHookDuration() { return natureHookDuration; }
+    public void setNatureHookDuration(int duration) { this.natureHookDuration = duration; saveSettings(); }
     
     public int getCooldownTime() { return cooldownTime; }
     public void setCooldownTime(int value) { this.cooldownTime = value; saveSettings(); }

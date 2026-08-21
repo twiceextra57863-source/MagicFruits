@@ -306,7 +306,7 @@ public class CycloneFuryAbility implements Ability, Listener {
             event.setCancelled(true);
             
             TornadoData tornado = activeTornadoes.get(uuid);
-            if (tornado.floatingBlocks.isEmpty()) {
+            if (tornado == null || tornado.floatingBlocks == null || tornado.floatingBlocks.isEmpty()) {
                 player.sendMessage("§c§l⚠ §fNo blocks to slam!");
                 return;
             }

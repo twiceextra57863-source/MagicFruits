@@ -11,10 +11,10 @@ commands:
     usage: /<command> [spin|give|dashboard|reload|reset|grace] [player] [fruit]
     aliases: [mf, fruits]
     permission: magicfruits.admin
-  
   magicwand:
-    description: Admin tool to protect/unprotect areas from fruit usage
+    description: Protection wand command to ban fruits in selected regions
     usage: /<command> [protect|break]
+    aliases: [mwand, wand]
     permission: magicfruits.admin
 
 permissions:

@@ -1,13 +1,11 @@
 package com.example.magicfruits.abilities;
 
-import com.example.magicfruits.FruitType;
 import com.example.magicfruits.MagicFruits;
 import org.bukkit.*;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
@@ -73,8 +71,9 @@ public class NatureHammerAbility implements Ability, Listener {
             return;
         }
         
-        // Create hook effect - 5 seconds control time
-        activeHooks.put(uuid, new HookData(target, System.currentTimeMillis() + 5000));
+        // Create hook effect (configurable control duration)
+        int durationSec = plugin.getDataManager().getNatureHookDuration();
+        activeHooks.put(uuid, new HookData(target, System.currentTimeMillis() + (durationSec * 1000L)));
         hookCooldown.put(uuid, System.currentTimeMillis());
         
         // Visual effect - Vine tendrils reaching out
@@ -117,14 +116,14 @@ public class NatureHammerAbility implements Ability, Listener {
         }
         
         player.sendTitle("§2§l🌿 NATURE HOOK! 🌿", 
-            "§eTarget locked for 5 seconds!", 10, 40, 10);
+            "§eTarget locked for " + durationSec + " seconds!", 10, 40, 10);
         player.sendMessage("§2§l🌿 §fYou have hooked §e" + target.getName() + "§f!");
         player.sendMessage("§eLeft click to launch them as a cannonball!");
         
         target.sendMessage("§c§l⚠ §fYou have been hooked by §e" + player.getName() + "§f!");
-        target.sendMessage("§eYou will be controlled for 5 seconds!");
+        target.sendMessage("§eYou will be controlled for " + durationSec + " seconds!");
         
-        // Hook movement control - checks if player still has the fruit
+        // Hook movement control
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -138,15 +137,15 @@ public class NatureHammerAbility implements Ability, Listener {
                     this.cancel();
                     return;
                 }
-                
-                // Check if controller still has the nature fruit in hand
-                ItemStack playerItem = player.getInventory().getItemInMainHand();
-                FruitType playerFruit = FruitType.fromItem(playerItem);
-                if (playerFruit != FruitType.NATURE_HAMMER_FRUIT) {
-                    // Player lost the fruit, remove control
-                    player.sendMessage("§c§l⚠ §fYou lost control of the hook!");
-                    target.sendMessage("§a§l✓ §fYou are free from the hook!");
+
+                // Check if player is still holding the Nature Hammer fruit
+                com.example.magicfruits.FruitType heldFruit = com.example.magicfruits.FruitType.fromItem(player.getInventory().getItemInMainHand());
+                if (heldFruit != com.example.magicfruits.FruitType.NATURE_HAMMER_FRUIT) {
                     activeHooks.remove(uuid);
+                    player.sendMessage("§c§l⚠ §fNature Hook released! You are no longer holding the Nature Fruit.");
+                    if (data.target != null && data.target.isOnline()) {
+                        data.target.sendMessage("§a§l🌿 §fNature Hook released!");
+                    }
                     this.cancel();
                     return;
                 }
@@ -416,11 +415,11 @@ public class NatureHammerAbility implements Ability, Listener {
     
     @Override
     public String getPrimaryDescription() {
-        return "Nature Hook (5s control, left click to launch, 35s cooldown)";
+        return "Nature Hook (15s control, left click to launch, 35s cooldown)";
     }
     
     @Override
     public String getSecondaryDescription() {
         return "Oak Hammer (Summon hammer, smash enemy, 50s cooldown)";
     }
-}
+            }

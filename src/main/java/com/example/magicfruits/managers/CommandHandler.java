@@ -22,9 +22,37 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (command.getName().equalsIgnoreCase("magicwand")) {
-            return handleMagicWandCommand(sender, args);
+            if (!(sender instanceof Player)) {
+                sender.sendMessage("§cThis command can only be used by players!");
+                return true;
+            }
+            Player player = (Player) sender;
+            if (!player.hasPermission("magicfruits.admin")) {
+                player.sendMessage("§cYou don't have permission to use Magic Wand!");
+                return true;
+            }
+
+            if (args.length == 0) {
+                player.getInventory().addItem(ProtectionManager.createWand());
+                player.sendMessage("§d§lMAGIC WAND §8» §aYou received the Magic Wand axe!");
+                player.sendMessage("§7Right-click block for Pos 1, Left-click block for Pos 2.");
+                player.sendMessage("§7Use §d/magicwand protect §7to ban fruits in selected region.");
+                player.sendMessage("§7Use §d/magicwand break §7to enable fruits in selected region.");
+                return true;
+            }
+
+            if (args[0].equalsIgnoreCase("protect")) {
+                plugin.getProtectionManager().protectSelection(player);
+                return true;
+            } else if (args[0].equalsIgnoreCase("break")) {
+                plugin.getProtectionManager().breakProtection(player);
+                return true;
+            } else {
+                player.sendMessage("§cUsage: /magicwand [protect|break]");
+                return true;
+            }
         }
-        
+
         if (args.length == 0) {
             if (sender instanceof Player) {
                 plugin.getAdminGUI().openMainDashboard((Player) sender);
@@ -69,100 +97,6 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
                 sender.sendMessage("§cUnknown command! Use: /magicfruits [spin|give|dashboard|reload|reset|grace]");
                 break;
         }
-        
-        return true;
-    }
-    
-    private boolean handleMagicWandCommand(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("§cThis command can only be used by players!");
-            return true;
-        }
-        
-        Player player = (Player) sender;
-        
-        if (!player.hasPermission("magicfruits.admin")) {
-            player.sendMessage("§cYou don't have permission to use this command!");
-            return true;
-        }
-        
-        // If no args, give the wand
-        if (args.length == 0) {
-            org.bukkit.inventory.ItemStack wand = new org.bukkit.inventory.ItemStack(org.bukkit.Material.WOODEN_AXE);
-            org.bukkit.inventory.meta.ItemMeta meta = wand.getItemMeta();
-            meta.setDisplayName("§d§l✨ §5§lMAGIC WAND §d§l✨");
-            java.util.List<String> lore = new java.util.ArrayList<>();
-            lore.add("§7Right Click: First Selection");
-            lore.add("§7Left Click: Second Selection");
-            lore.add("");
-            lore.add("§e/magicwand protect §7- Protect selected area");
-            lore.add("§e/magicwand break §7- Remove protection");
-            meta.setLore(lore);
-            meta.setCustomModelData(9999);
-            wand.setItemMeta(meta);
-            
-            player.getInventory().addItem(wand);
-            player.sendMessage("§d§l✨ §fYou received the Magic Wand!");
-            player.sendMessage("§7Right-click for first selection, Left-click for second selection.");
-            player.sendMessage("§7Then use §e/magicwand protect §7or §e/magicwand break");
-            return true;
-        }
-        
-        // Handle subcommands: protect, break
-        if (args.length >= 1) {
-            String subcommand = args[0].toLowerCase();
-            
-            if (subcommand.equals("protect")) {
-                if (!plugin.hasCompleteSelection(player.getUniqueId())) {
-                    player.sendMessage("§c§l⚠ §fPlease make both selections first!");
-                    player.sendMessage("§7Right-click for first selection, Left-click for second selection.");
-                    return true;
-                }
-                
-                org.bukkit.Location loc1 = plugin.getWandFirstSelection(player.getUniqueId());
-                org.bukkit.Location loc2 = plugin.getWandSecondSelection(player.getUniqueId());
-                
-                if (loc1 != null && loc2 != null && loc1.getWorld().equals(loc2.getWorld())) {
-                    plugin.protectRegion(loc1, loc2);
-                    player.sendMessage("§a§l✓ §fArea protected! Fruits cannot be used in this region.");
-                    player.sendMessage("§7Region: §e" + 
-                        loc1.getBlockX() + "," + loc1.getBlockY() + "," + loc1.getBlockZ() + " §7to §e" +
-                        loc2.getBlockX() + "," + loc2.getBlockY() + "," + loc2.getBlockZ());
-                    plugin.clearWandSelections(player.getUniqueId());
-                } else {
-                    player.sendMessage("§cInvalid selections! Make sure both selections are in the same world.");
-                }
-                return true;
-            }
-            
-            if (subcommand.equals("break")) {
-                if (!plugin.hasCompleteSelection(player.getUniqueId())) {
-                    player.sendMessage("§c§l⚠ §fPlease make both selections first!");
-                    player.sendMessage("§7Right-click for first selection, Left-click for second selection.");
-                    return true;
-                }
-                
-                org.bukkit.Location loc1 = plugin.getWandFirstSelection(player.getUniqueId());
-                org.bukkit.Location loc2 = plugin.getWandSecondSelection(player.getUniqueId());
-                
-                if (loc1 != null && loc2 != null && loc1.getWorld().equals(loc2.getWorld())) {
-                    plugin.unprotectRegion(loc1, loc2);
-                    player.sendMessage("§a§l✓ §fArea protection removed! Fruits can now be used in this region.");
-                    player.sendMessage("§7Region: §e" + 
-                        loc1.getBlockX() + "," + loc1.getBlockY() + "," + loc1.getBlockZ() + " §7to §e" +
-                        loc2.getBlockX() + "," + loc2.getBlockY() + "," + loc2.getBlockZ());
-                    plugin.clearWandSelections(player.getUniqueId());
-                } else {
-                    player.sendMessage("§cInvalid selections! Make sure both selections are in the same world.");
-                }
-                return true;
-            }
-        }
-        
-        player.sendMessage("§d§l✨ §5§lMAGIC WAND §d§l✨");
-        player.sendMessage("§7/magicwand §f- Get the magic wand");
-        player.sendMessage("§7/magicwand protect §f- Protect selected area (fruits disabled)");
-        player.sendMessage("§7/magicwand break §f- Remove protection (fruits enabled)");
         
         return true;
     }
@@ -278,6 +212,19 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
     
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (command.getName().equalsIgnoreCase("magicwand")) {
+            if (args.length == 1) {
+                List<String> suggestions = new ArrayList<>();
+                for (String sub : Arrays.asList("protect", "break")) {
+                    if (sub.startsWith(args[0].toLowerCase())) {
+                        suggestions.add(sub);
+                    }
+                }
+                return suggestions;
+            }
+            return Collections.emptyList();
+        }
+
         if (args.length == 1) {
             return Arrays.asList("spin", "give", "dashboard", "reload", "reset", "grace");
         } else if (args.length == 2 && args[0].equalsIgnoreCase("give")) {
