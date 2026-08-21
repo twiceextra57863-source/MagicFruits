@@ -1,0 +1,82 @@
+{
+  "model": {
+    "type": "minecraft:select",
+    "property": "minecraft:custom_model_data",
+    "cases": [
+      {
+        "when": 1001,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:item/cyclone_fury_fruit"
+        }
+      },
+      {
+        "when": 1002,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:item/tsunami_fruit"
+        }
+      },
+      {
+        "when": 1003,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:item/dracula_bites_fruit"
+        }
+      },
+      {
+        "when": 1004,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:item/nature_hammer_fruit"
+        }
+      },
+      {
+        "when": 1005,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:item/void_fruit"
+        }
+      },
+      {
+        "when": 1006,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:item/thunder_fruit"
+        }
+      },
+      {
+        "when": 1007,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:item/throne_fruit"
+        }
+      },
+      {
+        "when": 1008,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:item/wind_monster_fruit"
+        }
+      },
+      {
+        "when": 1009,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:item/star_fruit"
+        }
+      },
+      {
+        "when": 1010,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:item/thief_fruit"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "minecraft:item/wooden_sword"
+    }
+  }
+}

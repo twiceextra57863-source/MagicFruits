@@ -1,4 +1,4 @@
-name: Build MagicFruits Plugin
+name: Build MagicFruits Plugin and Resource Packs
 
 on:
   push:
@@ -34,11 +34,30 @@ jobs:
     - name: Build with Maven
       run: mvn clean package -DskipTests
     
+    - name: Zip Resource Packs
+      run: |
+        cd resourcepacks/MagicFruits-RP-1.21-1.21.8 && zip -r ../../MagicFruits-RP-1.21-1.21.8.zip . && cd ../..
+        cd resourcepacks/MagicFruits-RP-1.21.11-26.2.2 && zip -r ../../MagicFruits-RP-1.21.11-26.2.2.zip . && cd ../..
+
     - name: Upload Plugin JAR
       uses: actions/upload-artifact@v4
       with:
         name: MagicFruits-Plugin
         path: target/MagicFruits-*.jar
+        if-no-files-found: error
+
+    - name: Upload Resource Pack (1.21 - 1.21.8)
+      uses: actions/upload-artifact@v4
+      with:
+        name: MagicFruits-RP-1.21-1.21.8
+        path: MagicFruits-RP-1.21-1.21.8.zip
+        if-no-files-found: error
+
+    - name: Upload Resource Pack (1.21.11 - 26.2.2)
+      uses: actions/upload-artifact@v4
+      with:
+        name: MagicFruits-RP-1.21.11-26.2.2
+        path: MagicFruits-RP-1.21.11-26.2.2.zip
         if-no-files-found: error
     
     - name: Get Plugin Version
@@ -48,8 +67,11 @@ jobs:
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "artifact_name=MagicFruits-$VERSION.jar" >> $GITHUB_OUTPUT
     
-    - name: Upload to GitHub Packages (Optional)
+    - name: Log Build Status
       run: |
         echo "Build completed successfully!"
         echo "Plugin version: ${{ steps.get_version.outputs.version }}"
-        echo "Artifact: target/MagicFruits-${{ steps.get_version.outputs.version }}.jar"
+        echo "Artifacts generated:"
+        echo " - Plugin JAR"
+        echo " - MagicFruits-RP-1.21-1.21.8.zip"
+        echo " - MagicFruits-RP-1.21.11-26.2.2.zip"
