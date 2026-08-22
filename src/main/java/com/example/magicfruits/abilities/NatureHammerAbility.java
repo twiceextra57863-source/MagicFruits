@@ -138,9 +138,10 @@ public class NatureHammerAbility implements Ability, Listener {
                     return;
                 }
 
-                // Check if player is still holding the Nature Hammer fruit
-                com.example.magicfruits.FruitType heldFruit = com.example.magicfruits.FruitType.fromItem(player.getInventory().getItemInMainHand());
-                if (heldFruit != com.example.magicfruits.FruitType.NATURE_HAMMER_FRUIT) {
+                // Check if player is still holding the Nature Hammer fruit in main hand or off hand
+                com.example.magicfruits.FruitType mainHandFruit = com.example.magicfruits.FruitType.fromItem(player.getInventory().getItemInMainHand());
+                com.example.magicfruits.FruitType offHandFruit = com.example.magicfruits.FruitType.fromItem(player.getInventory().getItemInOffHand());
+                if (mainHandFruit != com.example.magicfruits.FruitType.NATURE_HAMMER_FRUIT && offHandFruit != com.example.magicfruits.FruitType.NATURE_HAMMER_FRUIT) {
                     activeHooks.remove(uuid);
                     player.sendMessage("§c§l⚠ §fNature Hook released! You are no longer holding the Nature Fruit.");
                     if (data.target != null && data.target.isOnline()) {
