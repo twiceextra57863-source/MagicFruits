@@ -21,6 +21,38 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
     
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (command.getName().equalsIgnoreCase("magicwand")) {
+            if (!(sender instanceof Player)) {
+                sender.sendMessage("§cThis command can only be used by players!");
+                return true;
+            }
+            Player player = (Player) sender;
+            if (!player.hasPermission("magicfruits.admin")) {
+                player.sendMessage("§cYou don't have permission to use Magic Wand!");
+                return true;
+            }
+
+            if (args.length == 0) {
+                player.getInventory().addItem(ProtectionManager.createWand());
+                player.sendMessage("§d§lMAGIC WAND §8» §aYou received the Magic Wand axe!");
+                player.sendMessage("§7Right-click block for Pos 1, Left-click block for Pos 2.");
+                player.sendMessage("§7Use §d/magicwand protect §7to ban fruits in selected region.");
+                player.sendMessage("§7Use §d/magicwand break §7to enable fruits in selected region.");
+                return true;
+            }
+
+            if (args[0].equalsIgnoreCase("protect")) {
+                plugin.getProtectionManager().protectSelection(player);
+                return true;
+            } else if (args[0].equalsIgnoreCase("break")) {
+                plugin.getProtectionManager().breakProtection(player);
+                return true;
+            } else {
+                player.sendMessage("§cUsage: /magicwand [protect|break]");
+                return true;
+            }
+        }
+
         if (args.length == 0) {
             if (sender instanceof Player) {
                 plugin.getAdminGUI().openMainDashboard((Player) sender);
@@ -180,6 +212,19 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
     
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (command.getName().equalsIgnoreCase("magicwand")) {
+            if (args.length == 1) {
+                List<String> suggestions = new ArrayList<>();
+                for (String sub : Arrays.asList("protect", "break")) {
+                    if (sub.startsWith(args[0].toLowerCase())) {
+                        suggestions.add(sub);
+                    }
+                }
+                return suggestions;
+            }
+            return Collections.emptyList();
+        }
+
         if (args.length == 1) {
             return Arrays.asList("spin", "give", "dashboard", "reload", "reset", "grace");
         } else if (args.length == 2 && args[0].equalsIgnoreCase("give")) {

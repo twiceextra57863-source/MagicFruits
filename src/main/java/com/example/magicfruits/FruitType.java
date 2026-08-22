@@ -68,13 +68,7 @@ public enum FruitType {
                "§7§oSteal abilities from others",
                Material.WOODEN_SWORD,
                1010,
-               new ThiefAbility()),
-    
-    PORTAL_FRUIT("§5§l🌀 §d§lPORTAL FRUIT §5§l🌀",
-                "§7§oMaster of dimensions",
-                Material.WOODEN_SWORD,
-                1011,
-                new PortalAbility());
+               new ThiefAbility());
     
     private final String displayName;
     private final String description;

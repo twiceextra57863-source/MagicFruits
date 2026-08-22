@@ -71,8 +71,9 @@ public class NatureHammerAbility implements Ability, Listener {
             return;
         }
         
-        // Create hook effect
-        activeHooks.put(uuid, new HookData(target, System.currentTimeMillis() + 15000));
+        // Create hook effect (configurable control duration)
+        int durationSec = plugin.getDataManager().getNatureHookDuration();
+        activeHooks.put(uuid, new HookData(target, System.currentTimeMillis() + (durationSec * 1000L)));
         hookCooldown.put(uuid, System.currentTimeMillis());
         
         // Visual effect - Vine tendrils reaching out
@@ -115,12 +116,12 @@ public class NatureHammerAbility implements Ability, Listener {
         }
         
         player.sendTitle("§2§l🌿 NATURE HOOK! 🌿", 
-            "§eTarget locked for 15 seconds!", 10, 40, 10);
+            "§eTarget locked for " + durationSec + " seconds!", 10, 40, 10);
         player.sendMessage("§2§l🌿 §fYou have hooked §e" + target.getName() + "§f!");
         player.sendMessage("§eLeft click to launch them as a cannonball!");
         
         target.sendMessage("§c§l⚠ §fYou have been hooked by §e" + player.getName() + "§f!");
-        target.sendMessage("§eYou will be controlled for 15 seconds!");
+        target.sendMessage("§eYou will be controlled for " + durationSec + " seconds!");
         
         // Hook movement control
         new BukkitRunnable() {
@@ -133,6 +134,19 @@ public class NatureHammerAbility implements Ability, Listener {
                 
                 HookData data = activeHooks.get(uuid);
                 if (data == null || data.target == null || !data.target.isOnline()) {
+                    this.cancel();
+                    return;
+                }
+
+                // Check if player is still holding the Nature Hammer fruit in main hand or off hand
+                com.example.magicfruits.FruitType mainHandFruit = com.example.magicfruits.FruitType.fromItem(player.getInventory().getItemInMainHand());
+                com.example.magicfruits.FruitType offHandFruit = com.example.magicfruits.FruitType.fromItem(player.getInventory().getItemInOffHand());
+                if (mainHandFruit != com.example.magicfruits.FruitType.NATURE_HAMMER_FRUIT && offHandFruit != com.example.magicfruits.FruitType.NATURE_HAMMER_FRUIT) {
+                    activeHooks.remove(uuid);
+                    player.sendMessage("§c§l⚠ §fNature Hook released! You are no longer holding the Nature Fruit.");
+                    if (data.target != null && data.target.isOnline()) {
+                        data.target.sendMessage("§a§l🌿 §fNature Hook released!");
+                    }
                     this.cancel();
                     return;
                 }

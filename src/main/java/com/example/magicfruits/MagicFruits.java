@@ -1,7 +1,6 @@
 package com.example.magicfruits;
 
 import com.example.magicfruits.abilities.Ability;
-import com.example.magicfruits.abilities.PortalAbility;
 import com.example.magicfruits.gui.AdminGUI;
 import com.example.magicfruits.managers.*;
 import org.bukkit.entity.Player;
@@ -27,6 +26,7 @@ public final class MagicFruits extends JavaPlugin implements Listener {
     private AdminGUI adminGUI;
     private CommandHandler commandHandler;
     private GracePeriodManager gracePeriodManager;
+    private ProtectionManager protectionManager;
     private Map<UUID, Ability> stolenAbilities = new HashMap<>();
     private Map<UUID, Long> stolenAbilityExpiry = new HashMap<>();
     
@@ -41,6 +41,7 @@ public final class MagicFruits extends JavaPlugin implements Listener {
         adminGUI = new AdminGUI(this);
         commandHandler = new CommandHandler(this);
         gracePeriodManager = new GracePeriodManager(this);
+        protectionManager = new ProtectionManager(this);
         
         // Load data
         dataManager.loadSettings();
@@ -51,11 +52,14 @@ public final class MagicFruits extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(adminGUI, this);
         getServer().getPluginManager().registerEvents(new com.example.magicfruits.gui.StealGUI(this), this);
         getServer().getPluginManager().registerEvents(new com.example.magicfruits.gui.FruitMenuGUI(this), this);
-        getServer().getPluginManager().registerEvents(new PortalAbility(), this);
         
         // Register commands
         getCommand("magicfruits").setExecutor(commandHandler);
         getCommand("magicfruits").setTabCompleter(commandHandler);
+        if (getCommand("magicwand") != null) {
+            getCommand("magicwand").setExecutor(commandHandler);
+            getCommand("magicwand").setTabCompleter(commandHandler);
+        }
         
         // Start cleanup tasks
         cooldownManager.startCleanupTask();
@@ -100,27 +104,115 @@ public final class MagicFruits extends JavaPlugin implements Listener {
     
     @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event) {
-        if (!dataManager.isDropOnDeath()) return;
-        
         Player player = event.getEntity();
         
         // Check if grace period protects this player
         if (gracePeriodManager != null && gracePeriodManager.shouldPreventDeathDrop(player)) {
-            event.getDrops().removeIf(item -> FruitType.fromItem(item) != null);
+            for (ItemStack item : new java.util.ArrayList<>(event.getDrops())) {
+                if (FruitType.fromItem(item) != null) {
+                    event.getDrops().remove(item);
+                    event.getItemsToKeep().add(item);
+                }
+            }
             player.sendMessage("§a§l🛡️ §fYour fruits were protected during grace period!");
             return;
         }
-        
-        // Normal death handling
-        for (ItemStack item : event.getDrops()) {
-            if (FruitType.fromItem(item) != null) {
-                player.getWorld().dropItemNaturally(player.getLocation(), item);
+
+        // Global drop-on-death check
+        if (!dataManager.isDropOnDeath()) {
+            for (ItemStack item : new java.util.ArrayList<>(event.getDrops())) {
+                if (FruitType.fromItem(item) != null) {
+                    event.getDrops().remove(item);
+                    event.getItemsToKeep().add(item);
+                }
+            }
+            return;
+        }
+
+        boolean isPvP = (player.getKiller() != null);
+        String mode = dataManager.getDeathDropMode();
+        boolean shouldDrop = false;
+
+        switch (mode.toUpperCase()) {
+            case "BOTH":
+            case "ALL":
+                shouldDrop = true;
+                break;
+            case "PVP_ONLY":
+                shouldDrop = isPvP;
+                break;
+            case "NATURAL_ONLY":
+                shouldDrop = !isPvP;
+                break;
+            case "NEVER":
+            case "NONE":
+                shouldDrop = false;
+                break;
+            default:
+                shouldDrop = isPvP;
+                break;
+        }
+
+        if (shouldDrop) {
+            for (ItemStack item : new java.util.ArrayList<>(event.getDrops())) {
+                if (FruitType.fromItem(item) != null) {
+                    player.getWorld().dropItemNaturally(player.getLocation(), item);
+                    event.getDrops().remove(item);
+                }
+            }
+            player.sendMessage("§c§l💀 §fYour magical fruits have been dropped on death!");
+        } else {
+            // Protect fruits on death by keeping them in inventory
+            for (ItemStack item : new java.util.ArrayList<>(event.getDrops())) {
+                if (FruitType.fromItem(item) != null) {
+                    event.getDrops().remove(item);
+                    event.getItemsToKeep().add(item);
+                }
+            }
+            player.sendMessage("§a§l🛡️ §fYour magical fruits were protected on death!");
+        }
+    }
+
+    @EventHandler
+    public void onPlayerDropItem(org.bukkit.event.player.PlayerDropItemEvent event) {
+        ItemStack item = event.getItemDrop().getItemStack();
+        if (FruitType.fromItem(item) != null && !dataManager.isAllowDrop()) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage("§c§l⚠ §fDropping magical fruits is DISABLED in server config!");
+        }
+    }
+
+    @EventHandler
+    public void onInventoryClick(org.bukkit.event.inventory.InventoryClickEvent event) {
+        if (dataManager.isAllowStorage()) return;
+
+        ItemStack current = event.getCurrentItem();
+        ItemStack cursor = event.getCursor();
+        boolean currentIsFruit = (FruitType.fromItem(current) != null);
+        boolean cursorIsFruit = (FruitType.fromItem(cursor) != null);
+
+        if (!currentIsFruit && !cursorIsFruit) return;
+
+        org.bukkit.inventory.Inventory clickedInv = event.getClickedInventory();
+        if (clickedInv == null) return;
+
+        // If clicking inside a non-player inventory (e.g. Chest, Barrel, EnderChest, Hopper, Shulker, etc.)
+        if (clickedInv.getType() != org.bukkit.event.inventory.InventoryType.PLAYER) {
+            event.setCancelled(true);
+            if (event.getWhoClicked() instanceof Player) {
+                ((Player) event.getWhoClicked()).sendMessage("§c§l⚠ §fStoring magical fruits in containers is DISABLED in server config!");
+            }
+        } else if (event.isShiftClick() && currentIsFruit) {
+            // Shift-clicking from player inventory into a top open container inventory
+            if (event.getInventory().getType() != org.bukkit.event.inventory.InventoryType.PLAYER) {
+                event.setCancelled(true);
+                if (event.getWhoClicked() instanceof Player) {
+                    ((Player) event.getWhoClicked()).sendMessage("§c§l⚠ §fStoring magical fruits in containers is DISABLED in server config!");
+                }
             }
         }
-        event.getDrops().removeIf(item -> FruitType.fromItem(item) != null);
-        player.sendMessage("§c§l💀 §fYour magical fruits have been dropped on death!");
     }
-    
+
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         Action action = event.getAction();
@@ -132,6 +224,12 @@ public final class MagicFruits extends JavaPlugin implements Listener {
             
             if (fruit != null) {
                 event.setCancelled(true);
+
+                // Check region protection
+                if (protectionManager != null && protectionManager.isLocationProtected(player.getLocation())) {
+                    player.sendMessage("§c§l⚠ §fMagical fruits are BANNED in this protected region!");
+                    return;
+                }
                 
                 // Check stolen ability
                 if (stolenAbilities.containsKey(player.getUniqueId())) {
@@ -178,5 +276,6 @@ public final class MagicFruits extends JavaPlugin implements Listener {
     public SpinManager getSpinManager() { return spinManager; }
     public AdminGUI getAdminGUI() { return adminGUI; }
     public GracePeriodManager getGracePeriodManager() { return gracePeriodManager; }
+    public ProtectionManager getProtectionManager() { return protectionManager; }
     public static MagicFruits getInstance() { return instance; }
 }

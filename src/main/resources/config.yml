@@ -7,9 +7,25 @@ settings:
   # First join reward - new players get a fruit spin (Admin can toggle from GUI)
   first-join-reward: true
   
-  # Drop on death - fruits drop when player dies (Admin can toggle from GUI)
+  # Allow storing magical fruits in containers (chests, barrels, ender chests, etc.)
+  allow-storage: false
+
+  # Allow dropping/throwing magical fruits from inventory (Q key)
+  allow-drop: false
+
+  # Death Drop Mode for magical fruits:
+  # BOTH         - Drops on both player killer (PvP) and natural deaths (fall, lava, etc.)
+  # PVP_ONLY     - Drops ONLY when killed by another player (Protected on natural death)
+  # NATURAL_ONLY - Drops ONLY on natural deaths (Protected on PvP death)
+  # NEVER        - Protected on all deaths (never drops)
+  death-drop-mode: "PVP_ONLY"
+
+  # Legacy toggle (kept for backwards compatibility)
   drop-on-death: true
   
+  # Duration in seconds for Nature Hook player control (Nature Fruit)
+  nature-hook-duration-seconds: 5
+
   # Cooldown time in seconds for fruit abilities
   cooldown-seconds: 30
   

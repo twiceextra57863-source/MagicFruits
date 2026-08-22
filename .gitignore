@@ -1,0 +1,11 @@
+target/
+*.log
+.DS_Store
+.idea/
+*.class
+*.jar
+*.war
+*.zip
+*.tar.gz
+generated_textures/
+dist/

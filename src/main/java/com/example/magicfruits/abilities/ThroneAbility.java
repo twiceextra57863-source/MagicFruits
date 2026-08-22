@@ -90,16 +90,35 @@ public class ThroneAbility implements Ability, Listener {
         activeShields.put(uuid, new ShieldData(System.currentTimeMillis() + 15000));
         shieldCooldown.put(uuid, System.currentTimeMillis());
         
-        // Visual effects
+        // Visual effects: Royal Golden halo & rotating shield orbits
         if (plugin.getDataManager().isParticlesEnabled()) {
-            for (int i = 0; i < 360; i += 10) {
-                double rad = Math.toRadians(i);
-                double radius = 1.5;
-                double x = Math.cos(rad) * radius;
-                double z = Math.sin(rad) * radius;
-                player.getWorld().spawnParticle(Particle.ENCHANT, player.getLocation().clone().add(x, 1, z), 0, 0, 0, 0, 1);
-                player.getWorld().spawnParticle(Particle.GLOW, player.getLocation().clone().add(x, 1.5, z), 0, 0, 0, 0, 1);
-            }
+            new BukkitRunnable() {
+                int ticks = 0;
+                @Override
+                public void run() {
+                    if (ticks >= 300 || !activeShields.containsKey(uuid) || !player.isOnline()) {
+                        this.cancel();
+                        return;
+                    }
+                    Location loc = player.getLocation();
+                    // Gold crown/ring above player's head
+                    double rad = Math.toRadians(ticks * 8);
+                    double x = Math.cos(rad) * 0.6;
+                    double z = Math.sin(rad) * 0.6;
+                    loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(x, 2.2, z), 1,
+                        new Particle.DustOptions(Color.fromRGB(0xFFD700), 1.0f));
+
+                    // Golden defensive orbits around body
+                    double rad2 = Math.toRadians(ticks * 5 + 180);
+                    double x2 = Math.cos(rad2) * 1.2;
+                    double z2 = Math.sin(rad2) * 1.2;
+                    double y2 = 0.5 + Math.sin(ticks * 0.1) * 0.5;
+                    loc.getWorld().spawnParticle(Particle.GLOW, loc.clone().add(x2, y2, z2), 1, 0, 0, 0, 0.01);
+                    loc.getWorld().spawnParticle(Particle.ENCHANT, loc.clone().add(x2, y2, z2), 1, 0, 0, 0, 0.01);
+
+                    ticks++;
+                }
+            }.runTaskTimer(plugin, 0L, 1L);
         }
         
         if (plugin.getDataManager().isSoundsEnabled()) {

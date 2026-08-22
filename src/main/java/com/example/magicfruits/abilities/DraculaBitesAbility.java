@@ -157,13 +157,28 @@ public class DraculaBitesAbility implements Ability, Listener {
 
     private void createBloodParticles(Player player, MagicFruits plugin) {
         new BukkitRunnable() {
-            int t = 0;
+            int ticks = 0;
+            @Override
             public void run() {
-                if (t++ > 75 || !activeBloodPhase.containsKey(player.getUniqueId())) { this.cancel(); return; }
-                player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0), 10, 0.5, 0.5, 0.5, 
-                    new Particle.DustOptions(Color.fromRGB(0x8B0000), 1.0f));
+                if (ticks >= 300 || !activeBloodPhase.containsKey(player.getUniqueId()) || !player.isOnline()) {
+                    this.cancel();
+                    return;
+                }
+                Location loc = player.getLocation();
+                double radius = 0.8;
+                double angle = ticks * 0.2;
+                double x = Math.cos(angle) * radius;
+                double z = Math.sin(angle) * radius;
+                double y = (ticks % 20) * 0.1; // rises up smoothly
+                Location pLoc = loc.clone().add(x, y, z);
+                if (plugin.getDataManager().isParticlesEnabled()) {
+                    pLoc.getWorld().spawnParticle(Particle.DUST, pLoc, 1,
+                        new Particle.DustOptions(Color.fromRGB(0x8B0000), 1.2f));
+                    pLoc.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, pLoc, 1, 0, 0, 0, 0);
+                }
+                ticks++;
             }
-        }.runTaskTimer(plugin, 0L, 4L);
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
     private void createSpiralParticles(Location center, MagicFruits plugin) {

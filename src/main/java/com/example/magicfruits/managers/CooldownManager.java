@@ -16,7 +16,6 @@ public class CooldownManager {
     private final MagicFruits plugin;
     private final Map<UUID, Map<FruitType, Map<String, Long>>> cooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, Map<FruitType, Map<String, Integer>>> activeTasks = new ConcurrentHashMap<>();
-    private final Map<UUID, Boolean> portalFirstClick = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastMessageTime = new ConcurrentHashMap<>();
     
     public CooldownManager(MagicFruits plugin) {
@@ -24,10 +23,6 @@ public class CooldownManager {
     }
     
     public boolean isOnCooldown(UUID playerId, FruitType fruit, String abilityType) {
-        if (fruit == FruitType.PORTAL_FRUIT && abilityType.equals("primary")) {
-            if (portalFirstClick.getOrDefault(playerId, true)) return false;
-        }
-
         Map<FruitType, Map<String, Long>> playerCooldowns = cooldowns.get(playerId);
         if (playerCooldowns == null) return false;
         Map<String, Long> abilityCooldowns = playerCooldowns.get(fruit);
@@ -35,10 +30,7 @@ public class CooldownManager {
         Long cooldownEnd = abilityCooldowns.get(abilityType);
         
         if (cooldownEnd == null) return false;
-        boolean onCooldown = cooldownEnd > System.currentTimeMillis();
-        
-        if (!onCooldown && fruit == FruitType.PORTAL_FRUIT) portalFirstClick.put(playerId, true);
-        return onCooldown;
+        return cooldownEnd > System.currentTimeMillis();
     }
     
     public void setCooldown(UUID playerId, FruitType fruit, String abilityType) {
@@ -49,15 +41,6 @@ public class CooldownManager {
     
     public void startCooldown(UUID playerId, FruitType fruit, String abilityType) {
         if (isOnCooldown(playerId, fruit, abilityType)) return;
-
-        if (fruit == FruitType.PORTAL_FRUIT && abilityType.equals("primary")) {
-            if (portalFirstClick.getOrDefault(playerId, true)) {
-                portalFirstClick.put(playerId, false);
-                Player p = plugin.getServer().getPlayer(playerId);
-                if (p != null) p.sendActionBar(Component.text("§b§l⚡ PORTAL READY!"));
-                return;
-            }
-        }
 
         setCooldown(playerId, fruit, abilityType);
         startCooldownDisplay(playerId, fruit, abilityType);
@@ -89,7 +72,6 @@ public class CooldownManager {
                     if (plugin.getDataManager().isSoundsEnabled()) {
                         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 2.0f);
                     }
-                    if (fruit == FruitType.PORTAL_FRUIT) portalFirstClick.put(playerId, true);
                     player.sendActionBar(Component.text("§a§l✓ §f" + fruit.getDisplayName() + " READY!"));
                     this.cancel();
                     return;
