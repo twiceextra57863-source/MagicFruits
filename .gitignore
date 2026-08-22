@@ -8,6 +8,4 @@ target/
 *.zip
 *.tar.gz
 generated_textures/
-
-# Generated textures
-generated_textures/
+dist/
