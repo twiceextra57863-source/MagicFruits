@@ -7,3 +7,7 @@ target/
 *.war
 *.zip
 *.tar.gz
+generated_textures/
+
+# Generated textures
+generated_textures/
