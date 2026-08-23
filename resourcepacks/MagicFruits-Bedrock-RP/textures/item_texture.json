@@ -1,0 +1,36 @@
+{
+  "resource_pack_name": "magicfruits",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "cyclone_fury_fruit": {
+      "textures": "textures/items/cyclone_fury_fruit"
+    },
+    "tsunami_fruit": {
+      "textures": "textures/items/tsunami_fruit"
+    },
+    "dracula_bites_fruit": {
+      "textures": "textures/items/dracula_bites_fruit"
+    },
+    "nature_hammer_fruit": {
+      "textures": "textures/items/nature_hammer_fruit"
+    },
+    "void_fruit": {
+      "textures": "textures/items/void_fruit"
+    },
+    "thunder_fruit": {
+      "textures": "textures/items/thunder_fruit"
+    },
+    "throne_fruit": {
+      "textures": "textures/items/throne_fruit"
+    },
+    "wind_monster_fruit": {
+      "textures": "textures/items/wind_monster_fruit"
+    },
+    "star_fruit": {
+      "textures": "textures/items/star_fruit"
+    },
+    "thief_fruit": {
+      "textures": "textures/items/thief_fruit"
+    }
+  }
+}

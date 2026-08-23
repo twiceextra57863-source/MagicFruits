@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "MagicFruits Bedrock Resource Pack",
+    "description": "Bedrock & GeyserMC custom fruit textures for MagicFruits",
+    "uuid": "b0e33fe4-7527-4fbb-9f95-61c0f8769526",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "1a6597e7-aca9-4d96-8ecd-4631c0b0a22d",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}
