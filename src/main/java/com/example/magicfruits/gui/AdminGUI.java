@@ -95,6 +95,9 @@ public class AdminGUI implements Listener {
         String soundsStatus = plugin.getDataManager().isSoundsEnabled() ? "§a✓ ENABLED" : "§c✗ DISABLED";
         gui.setItem(24, createMenuItem(Material.NOTE_BLOCK, "§a§lSOUNDS: " + soundsStatus,
             "§7Sound effects", "§7Click to " + (plugin.getDataManager().isSoundsEnabled() ? "disable" : "enable")));
+
+        gui.setItem(25, createMenuItem(Material.VINE, "§2§lNATURE CONTROL: " + plugin.getDataManager().getNatureManipulationTime() + "s",
+            "§7Nature fruit manipulation ability time", "§7Click to cycle: 5s → 10s → 15s → 3s"));
         
         ItemStack back = createMenuItem(Material.ARROW, "§c§l◀ BACK", "§7Return to main dashboard");
         gui.setItem(49, back);
@@ -113,6 +116,7 @@ public class AdminGUI implements Listener {
             "§7Drop on Death: " + (plugin.getDataManager().isDropOnDeath() ? "§aON" : "§cOFF"),
             "§7Cooldown: §f" + plugin.getDataManager().getCooldownTime() + "s",
             "§7Spin Duration: §f" + plugin.getDataManager().getSpinDuration() + "s",
+            "§7Nature Control Time: §f" + plugin.getDataManager().getNatureManipulationTime() + "s",
             "§7Particles: " + (plugin.getDataManager().isParticlesEnabled() ? "§aON" : "§cOFF"),
             "§7Sounds: " + (plugin.getDataManager().isSoundsEnabled() ? "§aON" : "§cOFF"),
             "§7Reset Players: §f" + plugin.getDataManager().getResetPlayersCount()));
@@ -238,6 +242,12 @@ public class AdminGUI implements Listener {
                 plugin.getDataManager().setSoundsEnabled(!plugin.getDataManager().isSoundsEnabled());
                 player.sendMessage(plugin.getDataManager().isSoundsEnabled() ? 
                     "§aSounds have been §lENABLED" : "§cSounds have been §lDISABLED");
+                openSettingsMenu(player);
+            } else if (name.contains("NATURE CONTROL")) {
+                int current = plugin.getDataManager().getNatureManipulationTime();
+                int newTime = current == 5 ? 10 : current == 10 ? 15 : current == 15 ? 3 : 5;
+                plugin.getDataManager().setNatureManipulationTime(newTime);
+                player.sendMessage("§2Nature manipulation control time set to: §f" + newTime + " seconds");
                 openSettingsMenu(player);
             }
         } else if (title.equals("§8§l✦ §6§lSTATISTICS §8§l✦")) {

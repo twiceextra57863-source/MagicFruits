@@ -17,6 +17,7 @@ public class DataManager {
     private boolean dropOnDeath = true;
     private int cooldownTime = 30;
     private int spinDuration = 15;
+    private int natureManipulationTime = 5;
     private boolean particlesEnabled = true;
     private boolean soundsEnabled = true;
     
@@ -30,6 +31,7 @@ public class DataManager {
         dropOnDeath = config.getBoolean("settings.drop-on-death", true);
         cooldownTime = config.getInt("settings.cooldown-seconds", 30);
         spinDuration = config.getInt("settings.spin-duration-seconds", 15);
+        natureManipulationTime = config.getInt("settings.nature-fruit-manipulation-time-seconds", 5);
         particlesEnabled = config.getBoolean("settings.particles-enabled", true);
         soundsEnabled = config.getBoolean("settings.sounds-enabled", true);
     }
@@ -40,6 +42,7 @@ public class DataManager {
         config.set("settings.drop-on-death", dropOnDeath);
         config.set("settings.cooldown-seconds", cooldownTime);
         config.set("settings.spin-duration-seconds", spinDuration);
+        config.set("settings.nature-fruit-manipulation-time-seconds", natureManipulationTime);
         config.set("settings.particles-enabled", particlesEnabled);
         config.set("settings.sounds-enabled", soundsEnabled);
         plugin.saveConfig();
@@ -121,6 +124,9 @@ public class DataManager {
     public int getSpinDuration() { return spinDuration; }
     public void setSpinDuration(int value) { this.spinDuration = value; saveSettings(); }
     
+    public int getNatureManipulationTime() { return natureManipulationTime; }
+    public void setNatureManipulationTime(int value) { this.natureManipulationTime = value; saveSettings(); }
+
     public boolean isParticlesEnabled() { return particlesEnabled; }
     public void setParticlesEnabled(boolean value) { this.particlesEnabled = value; saveSettings(); }
     
