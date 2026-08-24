@@ -17,10 +17,10 @@ jobs:
       with:
         fetch-depth: 0
     
-    - name: Set up JDK 25
+    - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
-        java-version: '25'
+        java-version: '21'
         distribution: 'temurin'
         cache: maven
     
@@ -33,12 +33,22 @@ jobs:
     
     - name: Build with Maven
       run: mvn clean package -DskipTests
-    
-    - name: Upload Plugin JAR
+
+    - name: Prepare Combined Package
+      run: |
+        mkdir -p dist
+        cp target/MagicFruits-*.jar dist/
+        cp resourcepacks/*.zip dist/ 2>/dev/null || true
+        cp resourcepacks/*.mcpack dist/ 2>/dev/null || true
+        cd dist
+        zip -r MagicFruits-Full-Package.zip .
+        cd ..
+
+    - name: Upload MagicFruits Release Package (ZIP)
       uses: actions/upload-artifact@v4
       with:
-        name: MagicFruits-Plugin
-        path: target/MagicFruits-*.jar
+        name: MagicFruits-Release-Package
+        path: dist/MagicFruits-Full-Package.zip
         if-no-files-found: error
     
     - name: Get Plugin Version

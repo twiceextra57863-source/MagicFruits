@@ -73,8 +73,9 @@ public class NatureHammerAbility implements Ability, Listener {
             return;
         }
         
-        // Create hook effect - 5 seconds control time
-        activeHooks.put(uuid, new HookData(target, System.currentTimeMillis() + 5000));
+        int controlTimeSec = plugin.getDataManager().getNatureManipulationTime();
+        // Create hook effect - configurable control time
+        activeHooks.put(uuid, new HookData(target, System.currentTimeMillis() + (controlTimeSec * 1000L)));
         hookCooldown.put(uuid, System.currentTimeMillis());
         
         // Visual effect - Vine tendrils reaching out
@@ -117,12 +118,12 @@ public class NatureHammerAbility implements Ability, Listener {
         }
         
         player.sendTitle("§2§l🌿 NATURE HOOK! 🌿", 
-            "§eTarget locked for 5 seconds!", 10, 40, 10);
+            "§eTarget locked for " + controlTimeSec + " seconds!", 10, 40, 10);
         player.sendMessage("§2§l🌿 §fYou have hooked §e" + target.getName() + "§f!");
         player.sendMessage("§eLeft click to launch them as a cannonball!");
         
         target.sendMessage("§c§l⚠ §fYou have been hooked by §e" + player.getName() + "§f!");
-        target.sendMessage("§eYou will be controlled for 5 seconds!");
+        target.sendMessage("§eYou will be controlled for " + controlTimeSec + " seconds!");
         
         // Hook movement control - checks if player still has the fruit
         new BukkitRunnable() {
@@ -416,7 +417,8 @@ public class NatureHammerAbility implements Ability, Listener {
     
     @Override
     public String getPrimaryDescription() {
-        return "Nature Hook (5s control, left click to launch, 35s cooldown)";
+        int controlTimeSec = MagicFruits.getInstance().getDataManager().getNatureManipulationTime();
+        return "Nature Hook (" + controlTimeSec + "s control, left click to launch, 35s cooldown)";
     }
     
     @Override

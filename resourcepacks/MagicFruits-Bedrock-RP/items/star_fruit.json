@@ -1,0 +1,14 @@
+{
+  "format_version": "1.16.100",
+  "minecraft:item": {
+    "description": {
+      "identifier": "magicfruits:star_fruit",
+      "category": "Items"
+    },
+    "components": {
+      "minecraft:icon": {
+        "texture": "star_fruit"
+      }
+    }
+  }
+}

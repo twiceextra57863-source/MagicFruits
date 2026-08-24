@@ -16,6 +16,9 @@ settings:
   # Spin duration in seconds
   spin-duration-seconds: 15
   
+  # Nature fruit manipulation control duration in seconds
+  nature-fruit-manipulation-time-seconds: 5
+
   # Visual effects
   particles-enabled: true
   sounds-enabled: true

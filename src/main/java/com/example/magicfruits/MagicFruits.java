@@ -16,8 +16,10 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -37,8 +39,10 @@ public final class MagicFruits extends JavaPlugin implements Listener {
     // MagicWand region protection system
     private Map<UUID, Location> wandFirstSelection = new HashMap<>();
     private Map<UUID, Location> wandSecondSelection = new HashMap<>();
-    private Set<String> protectedRegions = new HashSet<>(); // Store region IDs as "x1,y1,z1-x2,y2,z2"
-    
+    private Set<String> protectedRegions = new HashSet<>(); // Store region IDs as "world,x1,y1,z1-x2,y2,z2"
+    private java.io.File protectedRegionsFile;
+    private org.bukkit.configuration.file.FileConfiguration protectedRegionsConfig;
+
     @Override
     public void onEnable() {
         instance = this;
@@ -54,6 +58,7 @@ public final class MagicFruits extends JavaPlugin implements Listener {
         // Load data
         dataManager.loadSettings();
         dataManager.loadResetData();
+        loadProtectedRegions();
         
         // Register events
         getServer().getPluginManager().registerEvents(this, this);
@@ -81,7 +86,38 @@ public final class MagicFruits extends JavaPlugin implements Listener {
     public void onDisable() {
         dataManager.saveSettings();
         dataManager.saveResetData();
+        saveProtectedRegions();
         getLogger().info("§cMagicFruits plugin has been disabled!");
+    }
+
+    public void loadProtectedRegions() {
+        if (protectedRegionsFile == null) {
+            protectedRegionsFile = new java.io.File(getDataFolder(), "protected_regions.yml");
+        }
+        protectedRegionsConfig = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(protectedRegionsFile);
+
+        protectedRegions.clear();
+        List<String> list = protectedRegionsConfig.getStringList("protected-regions");
+        if (list != null) {
+            protectedRegions.addAll(list);
+        }
+        getLogger().info("Loaded " + protectedRegions.size() + " protected regions.");
+    }
+
+    public void saveProtectedRegions() {
+        if (protectedRegionsFile == null) {
+            protectedRegionsFile = new java.io.File(getDataFolder(), "protected_regions.yml");
+        }
+        if (protectedRegionsConfig == null) {
+            protectedRegionsConfig = new org.bukkit.configuration.file.YamlConfiguration();
+        }
+
+        protectedRegionsConfig.set("protected-regions", new ArrayList<>(protectedRegions));
+        try {
+            protectedRegionsConfig.save(protectedRegionsFile);
+        } catch (java.io.IOException e) {
+            getLogger().severe("Could not save protected_regions.yml: " + e.getMessage());
+        }
     }
     
     private void startStolenAbilityCleanup() {
@@ -255,44 +291,69 @@ public final class MagicFruits extends JavaPlugin implements Listener {
     }
     
     public String createRegionKey(Location loc1, Location loc2) {
+        String worldName = loc1.getWorld() != null ? loc1.getWorld().getName() : "world";
         int x1 = Math.min(loc1.getBlockX(), loc2.getBlockX());
         int y1 = Math.min(loc1.getBlockY(), loc2.getBlockY());
         int z1 = Math.min(loc1.getBlockZ(), loc2.getBlockZ());
         int x2 = Math.max(loc1.getBlockX(), loc2.getBlockX());
         int y2 = Math.max(loc1.getBlockY(), loc2.getBlockY());
         int z2 = Math.max(loc1.getBlockZ(), loc2.getBlockZ());
-        return x1 + "," + y1 + "," + z1 + "-" + x2 + "," + y2 + "," + z2;
+        return worldName + "," + x1 + "," + y1 + "," + z1 + "-" + x2 + "," + y2 + "," + z2;
     }
     
     public void protectRegion(Location loc1, Location loc2) {
         String regionKey = createRegionKey(loc1, loc2);
         protectedRegions.add(regionKey);
+        saveProtectedRegions();
     }
     
     public void unprotectRegion(Location loc1, Location loc2) {
         String regionKey = createRegionKey(loc1, loc2);
         protectedRegions.remove(regionKey);
+        saveProtectedRegions();
     }
     
     public boolean isLocationProtected(Location loc) {
+        if (loc == null || loc.getWorld() == null) return false;
+        String currentWorld = loc.getWorld().getName();
         int x = loc.getBlockX();
         int y = loc.getBlockY();
         int z = loc.getBlockZ();
         
         for (String region : protectedRegions) {
-            String[] parts = region.split("-");
-            String[] min = parts[0].split(",");
-            String[] max = parts[1].split(",");
-            
-            int x1 = Integer.parseInt(min[0]);
-            int y1 = Integer.parseInt(min[1]);
-            int z1 = Integer.parseInt(min[2]);
-            int x2 = Integer.parseInt(max[0]);
-            int y2 = Integer.parseInt(max[1]);
-            int z2 = Integer.parseInt(max[2]);
-            
-            if (x >= x1 && x <= x2 && y >= y1 && y <= y2 && z >= z1 && z <= z2) {
-                return true;
+            try {
+                String[] parts = region.split("-");
+                String[] min = parts[0].split(",");
+                String[] max = parts[1].split(",");
+
+                String worldName = min[0];
+                int x1 = Integer.parseInt(min[1]);
+                int y1 = Integer.parseInt(min[2]);
+                int z1 = Integer.parseInt(min[3]);
+                int x2 = Integer.parseInt(max[0]);
+                int y2 = Integer.parseInt(max[1]);
+                int z2 = Integer.parseInt(max[2]);
+
+                if (currentWorld.equalsIgnoreCase(worldName) &&
+                    x >= x1 && x <= x2 && y >= y1 && y <= y2 && z >= z1 && z <= z2) {
+                    return true;
+                }
+            } catch (Exception e) {
+                // Support legacy format if any existing key without world
+                try {
+                    String[] parts = region.split("-");
+                    String[] min = parts[0].split(",");
+                    String[] max = parts[1].split(",");
+                    int x1 = Integer.parseInt(min[0]);
+                    int y1 = Integer.parseInt(min[1]);
+                    int z1 = Integer.parseInt(min[2]);
+                    int x2 = Integer.parseInt(max[0]);
+                    int y2 = Integer.parseInt(max[1]);
+                    int z2 = Integer.parseInt(max[2]);
+                    if (x >= x1 && x <= x2 && y >= y1 && y <= y2 && z >= z1 && z <= z2) {
+                        return true;
+                    }
+                } catch (Exception ignored) {}
             }
         }
         return false;

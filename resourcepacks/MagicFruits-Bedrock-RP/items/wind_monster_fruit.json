@@ -1,0 +1,14 @@
+{
+  "format_version": "1.16.100",
+  "minecraft:item": {
+    "description": {
+      "identifier": "magicfruits:wind_monster_fruit",
+      "category": "Items"
+    },
+    "components": {
+      "minecraft:icon": {
+        "texture": "wind_monster_fruit"
+      }
+    }
+  }
+}
