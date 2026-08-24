@@ -33,11 +33,28 @@ jobs:
     
     - name: Build with Maven
       run: mvn clean package -DskipTests
-    
-    - name: Upload Plugin JAR and Resource Packs
+
+    - name: Prepare Combined Package
+      run: |
+        mkdir -p dist
+        cp target/MagicFruits-*.jar dist/
+        cp resourcepacks/*.zip dist/ 2>/dev/null || true
+        cp resourcepacks/*.mcpack dist/ 2>/dev/null || true
+        cd dist
+        zip -r MagicFruits-Full-Package.zip .
+        cd ..
+
+    - name: Upload All Artifacts Bundle (ZIP)
       uses: actions/upload-artifact@v4
       with:
-        name: MagicFruits-Build-Artifacts
+        name: MagicFruits-Full-Package
+        path: dist/MagicFruits-Full-Package.zip
+        if-no-files-found: error
+
+    - name: Upload Individual Build Files
+      uses: actions/upload-artifact@v4
+      with:
+        name: MagicFruits-Files
         path: |
           target/MagicFruits-*.jar
           resourcepacks/*.zip
