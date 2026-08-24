@@ -1,0 +1,14 @@
+{
+  "format_version": "1.16.100",
+  "minecraft:item": {
+    "description": {
+      "identifier": "magicfruits:dracula_bites_fruit",
+      "category": "Items"
+    },
+    "components": {
+      "minecraft:icon": {
+        "texture": "dracula_bites_fruit"
+      }
+    }
+  }
+}

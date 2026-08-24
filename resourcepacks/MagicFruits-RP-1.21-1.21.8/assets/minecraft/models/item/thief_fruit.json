@@ -1,6 +1,6 @@
 {
-  "parent": "minecraft:item/generated",
+  "parent": "item/generated",
   "textures": {
-    "layer0": "minecraft:item/thief_fruit"
+    "layer0": "item/thief_fruit"
   }
 }

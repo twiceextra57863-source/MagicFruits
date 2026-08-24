@@ -1,6 +1,6 @@
 {
-  "parent": "minecraft:item/generated",
+  "parent": "item/generated",
   "textures": {
-    "layer0": "minecraft:item/tsunami_fruit"
+    "layer0": "item/tsunami_fruit"
   }
 }

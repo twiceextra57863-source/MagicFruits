@@ -1,0 +1,14 @@
+{
+  "format_version": "1.16.100",
+  "minecraft:item": {
+    "description": {
+      "identifier": "magicfruits:cyclone_fury_fruit",
+      "category": "Items"
+    },
+    "components": {
+      "minecraft:icon": {
+        "texture": "cyclone_fury_fruit"
+      }
+    }
+  }
+}

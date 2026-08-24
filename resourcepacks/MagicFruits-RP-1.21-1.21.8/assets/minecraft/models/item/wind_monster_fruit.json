@@ -1,6 +1,6 @@
 {
-  "parent": "minecraft:item/generated",
+  "parent": "item/generated",
   "textures": {
-    "layer0": "minecraft:item/wind_monster_fruit"
+    "layer0": "item/wind_monster_fruit"
   }
 }
