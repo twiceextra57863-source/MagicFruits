@@ -1,68 +1,68 @@
 {
-  "parent": "item/handheld",
+  "parent": "minecraft:item/handheld",
   "textures": {
-    "layer0": "item/wooden_sword"
+    "layer0": "minecraft:item/wooden_sword"
   },
   "overrides": [
     {
       "predicate": {
         "custom_model_data": 1001
       },
-      "model": "item/cyclone_fury_fruit"
+      "model": "minecraft:item/cyclone_fury_fruit"
     },
     {
       "predicate": {
         "custom_model_data": 1002
       },
-      "model": "item/tsunami_fruit"
+      "model": "minecraft:item/tsunami_fruit"
     },
     {
       "predicate": {
         "custom_model_data": 1003
       },
-      "model": "item/dracula_bites_fruit"
+      "model": "minecraft:item/dracula_bites_fruit"
     },
     {
       "predicate": {
         "custom_model_data": 1004
       },
-      "model": "item/nature_hammer_fruit"
+      "model": "minecraft:item/nature_hammer_fruit"
     },
     {
       "predicate": {
         "custom_model_data": 1005
       },
-      "model": "item/void_fruit"
+      "model": "minecraft:item/void_fruit"
     },
     {
       "predicate": {
         "custom_model_data": 1006
       },
-      "model": "item/thunder_fruit"
+      "model": "minecraft:item/thunder_fruit"
     },
     {
       "predicate": {
         "custom_model_data": 1007
       },
-      "model": "item/throne_fruit"
+      "model": "minecraft:item/throne_fruit"
     },
     {
       "predicate": {
         "custom_model_data": 1008
       },
-      "model": "item/wind_monster_fruit"
+      "model": "minecraft:item/wind_monster_fruit"
     },
     {
       "predicate": {
         "custom_model_data": 1009
       },
-      "model": "item/star_fruit"
+      "model": "minecraft:item/star_fruit"
     },
     {
       "predicate": {
         "custom_model_data": 1010
       },
-      "model": "item/thief_fruit"
+      "model": "minecraft:item/thief_fruit"
     }
   ]
 }
